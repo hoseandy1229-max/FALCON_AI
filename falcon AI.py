@@ -1,22 +1,29 @@
 import streamlit as st
-import google.generativeai as genai
+import requests
 
-st.title("فالکون - نسخه تستِ آخر")
+st.title("فالکون - اتصال مستقیم")
 
-# استفاده از Secrets
 api_key = st.secrets.get("GOOGLE_API_KEY")
+prompt = st.text_input("سوالی بپرس:")
 
-if api_key:
-    genai.configure(api_key=api_key)
-    # تغییر به نسخه پایدارتر gemini-1.0-pro
-    model = genai.GenerativeModel('gemini-1.0-pro')
-    
-    prompt = st.text_input("سوالی بپرس:")
-    if st.button("ارسال"):
+if st.button("ارسال"):
+    if not api_key:
+        st.error("کلید یافت نشد!")
+    else:
+        # آدرس جهانی و مستقیم بدون وابستگی به موقعیت جغرافیایی
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        
+        headers = {'Content-Type': 'application/json'}
+        data = {"contents": [{"parts": [{"text": prompt}]}]}
+        
         try:
-            response = model.generate_content(prompt)
-            st.write(response.text)
+            # استفاده از یک درخواست مستقیم که کمتر از کتابخانه گوگل حساس است
+            response = requests.post(url, headers=headers, json=data, timeout=10)
+            result = response.json()
+            
+            if response.status_code == 200:
+                st.write(result['candidates'][0]['content']['parts'][0]['text'])
+            else:
+                st.error(f"خطای سرویس: {result}")
         except Exception as e:
-            st.error(f"خطای جمینای: {e}")
-else:
-    st.error("کلید API در Secrets نیست!")
+            st.error(f"خطای اتصال: {e}")
