@@ -35,7 +35,7 @@ if st.sidebar.button("Reset"):
     st.session_state.clear()
     st.rerun()
 
-mode = st.sidebar.radio("بخش:", ["📢 عمومی", "🌸 بخش سارا"])
+mode = st.sidebar.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
 
 def get_response(messages):
     system_instruction = {"role": "system", "content": "دستیار دقیق و حرفه‌ای. تعارف نکن."}
@@ -52,7 +52,7 @@ def render_chat(key):
     for msg in st.session_state[key]:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-    if prompt := st.chat_input("بنویس..."):
+    if prompt := st.chat_input("𝑨𝒔𝒌 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰"):
         st.session_state[key].append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
         with st.chat_message("assistant"):
@@ -61,14 +61,14 @@ def render_chat(key):
             st.session_state[key].append({"role": "assistant", "content": resp})
             st.rerun()
 
-if mode == "📢 عمومی":
-    st.title("📢 فالکون عمومی")
+if mode == "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰":
+    st.title("𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
     render_chat("messages")
 else:
     # کانتینر برای صورتی کردن کلِ فضا
     st.markdown('<div class="sara-bg">', unsafe_allow_html=True)
-    st.title("🌸 خلوتگاه سارا")
-    if st.text_input("رمز:", type="password") == "1234":
+    st.title("🌸 مخصوص سارا")
+    if st.text_input("رمز:", type="password") == "sara":
         render_chat("sara_messages")
     else:
         st.warning("قفل است.")
