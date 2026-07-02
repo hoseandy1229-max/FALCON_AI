@@ -16,7 +16,7 @@ if st.button("ارسال"):
             # استفاده از مدل llama3-8b که بسیار سریع و قدرتمند است
             chat_completion = client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama3-8b-8192",
+                model="llama-3.1-8b-instant",
             )
             st.write(chat_completion.choices[0].message.content)
         except Exception as e:
