@@ -14,7 +14,9 @@ else:
     # ۲. تست اتصال به مدل
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # خط مربوط به مدل را به این شکل بنویس:
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
+
         
         if st.button("تست ارتباط با مدل"):
             response = model.generate_content("سلام، اگر این پیام را می‌بینی یعنی ارتباط برقرار است.")
