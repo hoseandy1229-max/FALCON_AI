@@ -1,13 +1,29 @@
 import streamlit as st
 from groq import Groq
 
-# تنظیمات ظاهری
+# تنظیمات اصلی
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
+# استایل‌های جدید: صورتی برای پس‌زمینه سارا و آبی برای چت‌ها
 st.markdown("""
     <style>
+    /* پس‌زمینه کلی */
     .stApp { background-color: #0e1117; color: white; }
-    .sara-box { background-color: #1e1e2e; padding: 25px; border-radius: 20px; border: 2px solid #ffb7c5; }
+    
+    /* استایل بخش سارا */
+    .sara-container { 
+        background-color: #ffe4e6; 
+        padding: 20px; 
+        border-radius: 20px; 
+        color: #333;
+    }
+    
+    /* المان‌های چت در بخش سارا به رنگ آبی پاستیلی */
+    div[data-testid="stChatMessage"] {
+        background-color: #a7c7e7 !important;
+        border-radius: 15px;
+        color: #000 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -23,10 +39,9 @@ if st.sidebar.button("پاکسازی حافظه (Reset)"):
 mode = st.sidebar.radio("بخش:", ["📢 عمومی", "🌸 بخش سارا"])
 
 def get_response(messages):
-    # دستور جدی و مستقیم - بدون تعارف
     system_instruction = {
         "role": "system", 
-        "content": "تو دستیار هوشمند فالکون هستی. مستقیم، دقیق و حرفه‌ای پاسخ بده. از تعارفاتِ بی‌مورد مثل 'خوش آمدید' یا 'خوب باش' کاملاً پرهیز کن."
+        "content": "تو دستیار هوشمند فالکون هستی. دقیق و حرفه‌ای پاسخ بده. از تعارفات بی‌مورد پرهیز کن."
     }
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
@@ -37,11 +52,9 @@ def get_response(messages):
 def render_chat(key):
     if key not in st.session_state: st.session_state[key] = []
     
-    # نمایش پیام‌ها
     for msg in st.session_state[key]:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-    # دریافت پیام
     if prompt := st.chat_input("سوالی بپرس..."):
         st.session_state[key].append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
@@ -58,8 +71,9 @@ if mode == "📢 عمومی":
     render_chat("messages")
 else:
     st.title("🌸 خلوتگاه سارا")
-    st.markdown('<div class="sara-box">', unsafe_allow_html=True)
-    if st.text_input("رمز عبور:", type="password") == "1234":
+    st.markdown('<div class="sara-container">', unsafe_allow_html=True)
+    password = st.text_input("رمز عبور:", type="password")
+    if password == "1234":
         render_chat("sara_messages")
     else:
         st.warning("دسترسی محدود است.")
