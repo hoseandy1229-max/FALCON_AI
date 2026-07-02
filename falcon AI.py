@@ -1,94 +1,60 @@
 import streamlit as st
-import wikipedia
-import os
 import google.generativeai as genai
+import wikipedia
+from PIL import Image
 
-# تنظیمات اولیه
+# تنظیمات کتابخانه ویکی‌‌پدیا
 wikipedia.set_lang("fa")
-st.set_page_config(page_title="Falcon AI", page_icon="🦅")
 
-# مدیریت منعطف کلید API (اولویت با Secrets استریم‌لیت، سپس فایل .env)
-if "GOOGLE_API_KEY" in st.secrets:
-    api_key = st.secrets["GOOGLE_API_KEY"]
+# تنظیمات کلید API
+api_key = st.secrets.get("GOOGLE_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 else:
-    from dotenv import load_dotenv
-    load_dotenv()
-    api_key = os.getenv("GOOGLE_API_KEY")
+    st.error("کلید API در تنظیمات پیدا نشد!")
 
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-1.5-flash')
+st.title("🦅 FALCON AI - Vision")
 
-# منوی کناری و منطق شخصیت
-st.sidebar.title("🦅 تنظیمات فالکون")
-mode = st.sidebar.radio("حالت:", ["𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
+# آپلود تصویر
+uploaded_file = st.file_uploader("یک تصویر برای تحلیل آپلود کن...", type=["jpg", "jpeg", "png"])
 
-SECRET_PASSWORD = "sara" 
-bg_color = "#0a0a0a"    # عمومی: مشکی
-element_color = "#d4af37" # عمومی: طلایی
-welcome_message = ""
+# مدیریت تاریخچه چت
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-system_instruction = "تو فالکونی، دستیاری باهوش و مرموز که عاشق تئوری‌های علمی و تاریخی هستی. کوتاه و با لحن جذاب جواب بده."
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# منطق رمز و تم داینامیک برای سارا
-if mode == "𝑺𝑹 𝑩𝑶𝑻":
-    password = st.sidebar.text_input("رمز عبور:", type="password")
-    if password == SECRET_PASSWORD:
-        system_instruction = "تو فالکونی و در حال صحبت با سارا هستی. بسیار صمیمی، مهربان و با احترام زیاد جواب بده."
-        bg_color = "#fce4ec"      # صورتی ملایم
-        element_color = "#a2c2e8" # آبی پاستیلی
-        welcome_message = "سارا، به سارا‌بات خوش اومدی! 🌸"
+# ورودی متن
+if prompt := st.chat_input("سوالی داری؟"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        full_response = ""
         
-        st.sidebar.success("سلام سارای عزیز!")
-        if "balloon_shown" not in st.session_state:
-            st.balloons()
-            st.session_state.balloon_shown = True
-    else:
-        system_instruction = "STOP"
-else:
-    st.session_state.balloon_shown = False
-
-# تزریق CSS برای استایل‌دهی
-st.markdown(f"""
-    <style>
-    .stApp {{ background-color: {bg_color}; }}
-    h1 {{ color: {element_color}; text-align: center; }}
-    .stChatMessage {{ border-radius: 15px; border: 1px solid {element_color}; }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# نمایش عنوان و پیام خوش‌آمدگویی
-st.title("🦅 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
-if welcome_message:
-    st.markdown(f"<h3 style='text-align: center; color: #555;'>{welcome_message}</h3>", unsafe_allow_html=True)
-
-# نمایش چت‌ها
-if "messages" not in st.session_state: st.session_state.messages = []
-for m in st.session_state.messages:
-    with st.chat_message(m["role"]): st.markdown(m["content"])
-
-# منطق پاسخ‌دهی
-if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰"):
-    if system_instruction == "STOP":
-        st.warning("رمز عبور اشتباه است یا وارد نشده!")
-    else:
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"): st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            # اگر کاربر درخواست تصویر داشت
-            if "تصویر" in prompt or "عکس" in prompt:
-                # جستجوی تصویر (بدون نیاز به اعتبار یا هزینه‌ی ای‌پی‌آی)
-                image_url = f"https://source.unsplash.com/800x400/?{prompt}"
-                st.image(image_url, caption="فالکون این را پیدا کرد")
-                response = "اینم تصویری که خواستی!"
+        try:
+            # اگر تصویر وجود داشته باشد، آن را به جمینای می‌فرستیم
+            if uploaded_file:
+                image = Image.open(uploaded_file)
+                st.image(image, caption="تصویر در حال تحلیل...")
+                response = model.generate_content([prompt, image])
             else:
-                # جستجوی متنی در ویکی‌پدیا و سپس هوش مصنوعی
-                try:
-                    search_results = wikipedia.summary(prompt, sentences=2)
-                    response = f"🦅 [بررسی دانش]: {search_results}"
-                except:
-                    result = model.generate_content(system_instruction + prompt)
-                    response = result.text
+                # اولویت اول: جمینای برای متن
+                response = model.generate_content(prompt)
             
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            full_response = response.text
+            
+        except:
+            # اولویت دوم: ویکی‌‌پدیا اگر جمینای خطا داد
+            try:
+                summary = wikipedia.summary(prompt, sentences=2)
+                full_response = f"پاسخی از مدل دریافت نشد، اما این اطلاعات را در ویکی‌‌پدیا یافتم: \n\n{summary}"
+            except:
+                full_response = "متأسفم، در حال حاضر پاسخی برای این سوال ندارم."
+        
+        st.markdown(full_response)
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
