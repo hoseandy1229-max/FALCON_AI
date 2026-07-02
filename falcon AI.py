@@ -1,11 +1,8 @@
 import streamlit as st
-from openai import OpenAI
-from PIL import Image
+from groq import Groq
 
-# تنظیمات صفحه
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌های مشکی و پاستیلی
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -13,52 +10,41 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# کلاینت OpenAI
-api_key = st.secrets.get("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
+# دریافت کلید از Secrets (مطمئن شو GROQ_API_KEY آنجا ست شده باشد)
+api_key = st.secrets.get("GROQ_API_KEY")
+client = Groq(api_key=api_key)
 
-# سایدبار
-mode = st.sidebar.radio("انتخاب بخش:", ["📢 عمومی", "🌸 بخش سارا"])
+mode = st.sidebar.radio("بخش:", ["📢 عمومی", "🌸 بخش سارا"])
 
-def get_chatgpt_response(messages):
+def get_response(messages):
+    # تنظیم دقیق برای فارسی روان
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "system", "content": "فقط فارسی روان بنویس. بدون کاراکترهای عجیب."}] + messages
     )
     return response.choices[0].message.content
 
-def render_chat(messages_key, system_instruction):
-    if messages_key not in st.session_state:
-        st.session_state[messages_key] = [{"role": "system", "content": system_instruction}]
-    
-    # نمایش پیام‌ها
-    for msg in st.session_state[messages_key]:
-        if msg["role"] != "system":
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+def render_chat(key):
+    if key not in st.session_state: st.session_state[key] = []
+    for msg in st.session_state[key]:
+        with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-    if prompt := st.chat_input("پیام خود را بنویسید..."):
-        st.session_state[messages_key].append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-            
+    if prompt := st.chat_input("بنویس..."):
+        st.session_state[key].append({"role": "user", "content": prompt})
+        with st.chat_message("user"): st.markdown(prompt)
         with st.chat_message("assistant"):
-            response = get_chatgpt_response(st.session_state[messages_key])
-            st.markdown(response)
-            st.session_state[messages_key].append({"role": "assistant", "content": response})
+            resp = get_response(st.session_state[key])
+            st.markdown(resp)
+            st.session_state[key].append({"role": "assistant", "content": resp})
 
-# --- صفحات ---
 if mode == "📢 عمومی":
     st.title("📢 فالکون عمومی")
-    render_chat("messages", "تو یک دستیار هوشمند و وفادار به نام فالکون هستی. فارسی روان صحبت کن.")
-
+    render_chat("messages")
 else:
     st.title("🌸 خلوتگاه سارا")
     st.markdown('<div class="sara-box">', unsafe_allow_html=True)
-    password = st.text_input("رمز ورود:", type="password")
-    
-    if password == "1234":
-        render_chat("sara_messages", "تو دستیار اختصاصی سارا هستی. بسیار صمیمی و مهربان پاسخ بده.")
+    if st.text_input("رمز:", type="password") == "1234":
+        render_chat("sara_messages")
     else:
-        st.warning("اینجا فقط برای ساراست...")
+        st.warning("رمز اشتباه است.")
     st.markdown('</div>', unsafe_allow_html=True)
