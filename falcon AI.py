@@ -15,7 +15,8 @@ else:
     try:
         genai.configure(api_key=api_key)
         # خط مربوط به مدل را به این شکل بنویس:
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.0-pro')
+
 
         
         if st.button("تست ارتباط با مدل"):
