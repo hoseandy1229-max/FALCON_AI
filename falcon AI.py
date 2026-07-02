@@ -1,26 +1,17 @@
 import streamlit as st
 import google.generativeai as genai
 
-st.title("تست اتصال جمینای")
+st.title("تست نهایی اتصال")
 
-# ۱. چک کردن کلید API
 api_key = st.secrets.get("GOOGLE_API_KEY")
 
-if not api_key:
-    st.error("کلید API در Secrets تنظیم نشده است!")
-else:
-    st.success("کلید API پیدا شد.")
-    
-    # ۲. تست اتصال به مدل
+if st.button("تست اتصال"):
     try:
         genai.configure(api_key=api_key)
-        # خط مربوط به مدل را به این شکل بنویس:
-        model = genai.GenerativeModel('gemini-1.0-pro')
-
-
-        
-        if st.button("تست ارتباط با مدل"):
-            response = model.generate_content("سلام، اگر این پیام را می‌بینی یعنی ارتباط برقرار است.")
-            st.write("پاسخ مدل:", response.text)
+        # استفاده از مدل به صورت رشته ساده
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content("سلام")
+        st.success("ارتباط با موفقیت برقرار شد!")
+        st.write(response.text)
     except Exception as e:
-        st.error(f"خطا در اتصال به گوگل: {e}")
+        st.error(f"خطای اتصال: {e}")
