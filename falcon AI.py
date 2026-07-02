@@ -14,10 +14,10 @@ if api_key:
 else:
     st.error("کلید API در تنظیمات پیدا نشد!")
 
-st.title("🦅 FALCON AI - Vision")
+st.title("🦅 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰 - Vision")
 
 # آپلود تصویر
-uploaded_file = st.file_uploader("یک تصویر برای تحلیل آپلود کن...", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("𝑨𝑺𝑲 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", type=["jpg", "jpeg", "png"])
 
 # مدیریت تاریخچه چت
 if "messages" not in st.session_state:
@@ -28,7 +28,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # ورودی متن
-if prompt := st.chat_input("سوالی داری؟"):
+if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -40,7 +40,7 @@ if prompt := st.chat_input("سوالی داری؟"):
             # اگر تصویر وجود داشته باشد، آن را به جمینای می‌فرستیم
             if uploaded_file:
                 image = Image.open(uploaded_file)
-                st.image(image, caption="تصویر در حال تحلیل...")
+                st.image(image, caption="𝑳𝒐𝒂𝒅𝒊𝒏𝒈")
                 response = model.generate_content([prompt, image])
             else:
                 # اولویت اول: جمینای برای متن
