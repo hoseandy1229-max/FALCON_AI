@@ -1,29 +1,23 @@
 import streamlit as st
-import requests
+from groq import Groq
 
-st.title("فالکون - اتصال مستقیم")
+st.title("فالکون - نسخه Groq (پر سرعت)")
 
-api_key = st.secrets.get("GOOGLE_API_KEY")
+api_key = st.secrets.get("GROQ_API_KEY")
+client = Groq(api_key=api_key)
+
 prompt = st.text_input("سوالی بپرس:")
 
 if st.button("ارسال"):
     if not api_key:
-        st.error("کلید یافت نشد!")
+        st.error("کلید Groq پیدا نشد!")
     else:
-        # آدرس جهانی و مستقیم بدون وابستگی به موقعیت جغرافیایی
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        
-        headers = {'Content-Type': 'application/json'}
-        data = {"contents": [{"parts": [{"text": prompt}]}]}
-        
         try:
-            # استفاده از یک درخواست مستقیم که کمتر از کتابخانه گوگل حساس است
-            response = requests.post(url, headers=headers, json=data, timeout=10)
-            result = response.json()
-            
-            if response.status_code == 200:
-                st.write(result['candidates'][0]['content']['parts'][0]['text'])
-            else:
-                st.error(f"خطای سرویس: {result}")
+            # استفاده از مدل llama3-8b که بسیار سریع و قدرتمند است
+            chat_completion = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama3-8b-8192",
+            )
+            st.write(chat_completion.choices[0].message.content)
         except Exception as e:
-            st.error(f"خطای اتصال: {e}")
+            st.error(f"خطای Groq: {e}")
