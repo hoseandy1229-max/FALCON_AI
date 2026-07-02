@@ -41,8 +41,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"])
 
-if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰...
-"):
+if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰..."):
     if system_instruction == "STOP":
         st.warning("رمز عبور اشتباه است!")
     else:
