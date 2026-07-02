@@ -13,34 +13,39 @@ st.markdown("""
 api_key = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=api_key)
 
+# دکمه برای پاکسازی کامل حافظه ربات
+if st.sidebar.button("Reset Chat"):
+    st.session_state.clear()
+    st.rerun()
+
 mode = st.sidebar.radio("بخش:", ["📢 عمومی", "🌸 بخش سارا"])
 
 def get_response(messages):
-    # اینجاست که جلویِ هذیانِ مدل را می‌گیریم
+    # سیستم پرامپت بسیار خنثی
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
-        messages=[{"role": "system", "content": "تو دستیارِ صمیمی هستی. فقط به پیام کاربر پاسخ بده و خودت شروع‌کننده نباش."}] + messages
+        messages=[{"role": "system", "content": "فقط به پیام کاربر پاسخ بده. هیچ سوالی نپرس و هیچ چیزی اضافه نکن."}] + messages
     )
     return response.choices[0].message.content
 
 def render_chat(key):
     if key not in st.session_state: st.session_state[key] = []
     
-    # نمایش تاریخچه
+    # نمایش پیام‌ها
     for msg in st.session_state[key]:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-    # فقط اگر ورودیِ جدیدی از کاربر بیاید، ربات اجرا می‌شود
+    # دریافت ورودی جدید
     if prompt := st.chat_input("بنویس..."):
+        # اضافه کردن پیام کاربر
         st.session_state[key].append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
         
+        # تولید پاسخ
         with st.chat_message("assistant"):
             resp = get_response(st.session_state[key])
             st.markdown(resp)
             st.session_state[key].append({"role": "assistant", "content": resp})
-            # اضافه کردن این دستور برای رفرش شدن صفحه پس از پاسخ
-            st.rerun()
 
 if mode == "📢 عمومی":
     st.title("📢 فالکون عمومی")
