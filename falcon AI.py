@@ -20,7 +20,7 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 
 # منوی کناری و منطق شخصیت
 st.sidebar.title("🦅 تنظیمات فالکون")
-mode = st.sidebar.radio("حالت:", ["فالکون برای همه", "فالکونِ اختصاصی سارا"])
+mode = st.sidebar.radio("حالت:", ["𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
 
 SECRET_PASSWORD = "sara" 
 bg_color = "#0a0a0a"    # عمومی: مشکی
@@ -30,7 +30,7 @@ welcome_message = ""
 system_instruction = "تو فالکونی، دستیاری باهوش و مرموز که عاشق تئوری‌های علمی و تاریخی هستی. کوتاه و با لحن جذاب جواب بده."
 
 # منطق رمز و تم داینامیک برای سارا
-if mode == "فالکونِ اختصاصی سارا":
+if mode == "𝑺𝑹 𝑩𝑶𝑻":
     password = st.sidebar.text_input("رمز عبور:", type="password")
     if password == SECRET_PASSWORD:
         system_instruction = "تو فالکونی و در حال صحبت با سارا هستی. بسیار صمیمی، مهربان و با احترام زیاد جواب بده."
@@ -57,7 +57,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # نمایش عنوان و پیام خوش‌آمدگویی
-st.title("🦅 FALCON AI")
+st.title("🦅 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
 if welcome_message:
     st.markdown(f"<h3 style='text-align: center; color: #555;'>{welcome_message}</h3>", unsafe_allow_html=True)
 
@@ -67,7 +67,7 @@ for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"])
 
 # منطق پاسخ‌دهی
-if prompt := st.chat_input("با فالکون صحبت کن..."):
+if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰"):
     if system_instruction == "STOP":
         st.warning("رمز عبور اشتباه است یا وارد نشده!")
     else:
