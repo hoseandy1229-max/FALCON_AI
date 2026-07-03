@@ -65,15 +65,19 @@ def render_chat(key, is_sara=False):
         with st.chat_message("assistant"):
             if tool_mode and not is_sara:
                 random_seed = random.randint(1, 999999)
-                # اضافه کردنِ کلماتِ کلیدی برای تولید عکس واقعی
-                refined_prompt = f"Real photography of {prompt}, cinematic, 8k, realistic, highly detailed"
-                safe_prompt = urllib.parse.quote(refined_prompt)
                 
+                # اصلاح هوشمند: اگر کاربر گفت ماه، پرامپت انگلیسی دقیق ارسال شود
+                if "ماه" in prompt:
+                    final_prompt = "A realistic, high-definition photo of the moon in the night sky, cinematic, 8k, detailed"
+                else:
+                    final_prompt = f"Real photography of {prompt}, cinematic, 8k, realistic, highly detailed"
+                
+                safe_prompt = urllib.parse.quote(final_prompt)
                 img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=1024&nologo=true&seed={random_seed}"
                 
                 st.info("در حال عکاسی توسط هوش مصنوعی...")
                 st.image(img_url, caption=f"تصویر برای: {prompt}")
-                st.markdown(f"[📥 اگر تصویر لود نشد، برای دانلود کلیک کنید]({img_url})")
+                st.markdown(f"[📥 اگر تصویر لود نشد، برای دانلود مستقیم کلیک کنید]({img_url})")
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
                 resp = get_response(st.session_state[key], is_sara)
