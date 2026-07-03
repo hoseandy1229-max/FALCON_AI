@@ -15,18 +15,27 @@ if not cookies.ready(): st.stop()
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌ها - کلاسیک و وسط‌چین
+# استایل‌ها - فونت اختصاصی انگلیسی و وسط‌چین‌سازی کامل
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
     
-    html, body, [class*="st-"] {
-        font-family: 'Vazirmatn', sans-serif !important;
+    .stApp { 
+        background-color: #0e1117; 
+        color: white; 
+        font-family: 'Roboto', sans-serif !important; 
     }
-
-    .stApp { background-color: #0e1117; color: white; }
     
-    h1, .stRadio, .stMarkdown {
+    h1 {
+        text-align: center !important;
+    }
+    
+    div.row-widget.stRadio > div {
+        flex-direction: row;
+        justify-content: center;
+    }
+    
+    .stMarkdown {
         text-align: center !important;
         display: flex;
         flex-direction: column;
