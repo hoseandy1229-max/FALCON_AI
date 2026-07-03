@@ -18,12 +18,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# تنظیمات اولیه کلاینت‌ها
+# تنظیمات کلاینت‌ها
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"]
 
-# سیستم احراز هویت با استفاده از URL
+# سیستم احراز هویت با URL
 query_params = st.query_params
 if "user" in query_params:
     st.session_state.username = query_params["user"][0]
@@ -37,10 +37,9 @@ if "username" not in st.session_state or st.session_state.username is None:
         st.rerun()
     st.stop()
 
-# ایجاد پوشه کاربر
+# مدیریت پوشه کاربر
 user_dir = f"history/{st.session_state.username}"
 if not os.path.exists(user_dir): os.makedirs(user_dir)
-
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 
 # سایدبار
@@ -63,17 +62,22 @@ with st.sidebar:
         st.session_state.messages_sr = []
         st.rerun()
 
-    # پنل ادمین
+    # پنل ادمین اصلاح شده
     if st.session_state.username == "admin":
         st.divider()
         st.subheader("⚠️ پنل ادمین")
-        all_users = os.listdir("history/")
-        sel_user = st.selectbox("انتخاب کاربر:", all_users)
-        user_chats = os.listdir(f"history/{sel_user}")
-        sel_chat = st.selectbox("انتخاب چت:", user_chats)
-        if st.button("مشاهده چت"):
-            with open(f"history/{sel_user}/{sel_chat}", 'r') as f:
-                st.json(json.load(f))
+        if os.path.exists("history/"):
+            all_users = [d for d in os.listdir("history/") if os.path.isdir(os.path.join("history/", d))]
+            if all_users:
+                sel_user = st.selectbox("انتخاب کاربر:", all_users)
+                user_chats = [f for f in os.listdir(f"history/{sel_user}") if f.endswith(".json")]
+                if user_chats:
+                    sel_chat = st.selectbox("انتخاب چت:", user_chats)
+                    if st.button("مشاهده چت"):
+                        with open(f"history/{sel_user}/{sel_chat}", 'r') as f:
+                            st.json(json.load(f))
+                else: st.info("این کاربر هنوز چتی ندارد.")
+            else: st.info("هنوز کاربری وارد نشده است.")
 
 # نمایش چت
 st.title("𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
