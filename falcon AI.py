@@ -31,7 +31,7 @@ for msg in st.session_state.messages:
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-# --- بخش تحلیل عکس با مدل پایدار ---
+# --- بخش تحلیل عکس با مکانیزمِ خودکارِ تغییرِ مدل ---
 if mode == "👁️ تحلیل عکس":
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=['jpg', 'png', 'jpeg'])
     if uploaded_file:
@@ -39,28 +39,42 @@ if mode == "👁️ تحلیل عکس":
         base64_img = base64.b64encode(bytes_data).decode('utf-8')
         
         with st.chat_message("assistant"):
-            with st.spinner("در حال تحلیل با Pixtral..."):
-                try:
-                    response = or_client.chat.completions.create(
-                        model="mistralai/pixtral-12b:free", 
-                        messages=[{
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": "این تصویر را دقیق و به فارسی تحلیل کن."},
-                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
-                            ]
-                        }],
-                        max_tokens=400 
-                    )
-                    res = response.choices[0].message.content
-                    st.markdown(res)
-                    st.session_state.messages.append({"role": "assistant", "content": res})
-                except Exception as e:
-                    st.error("❌ خطا در تحلیل.")
-                    st.info("سرویس تحلیل تصویر شلوغ است. لطفاً ۵ دقیقه دیگر دوباره تلاش کنید.")
+            with st.spinner("در حال جستجوی سرور آزاد..."):
+                # لیست مدل‌های رایگان به ترتیب اولویت برای دور زدن شلوغی
+                model_list = [
+                    "mistralai/pixtral-12b:free",
+                    "google/gemini-2.0-flash-lite-preview-02-05:free",
+                    "qwen/qwen-2.5-vl-72b-instruct:free"
+                ]
+                
+                success = False
+                for model_name in model_list:
+                    try:
+                        response = or_client.chat.completions.create(
+                            model=model_name,
+                            messages=[{
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": "این تصویر را دقیق و به فارسی تحلیل کن."},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
+                                ]
+                            }],
+                            max_tokens=400
+                        )
+                        res = response.choices[0].message.content
+                        st.markdown(f"**تحلیل مدل ({model_name.split('/')[0]}):**\n\n{res}")
+                        st.session_state.messages.append({"role": "assistant", "content": res})
+                        success = True
+                        break 
+                    except Exception:
+                        continue 
+                
+                if not success:
+                    st.error("❌ تمامی سرورهای رایگان در حال حاضر به شدت شلوغ هستند.")
+                    st.info("لطفاً چند دقیقه صبر کنید و دوباره امتحان کنید.")
 
 # --- بخش چت و تولید تصویر ---
-if prompt := st.chat_input("پیام خود را بنویسید..."):
+if prompt := st.chat_input("پیام یا دستور خود را بنویسید..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     
@@ -80,5 +94,5 @@ if prompt := st.chat_input("پیام خود را بنویسید..."):
                 st.markdown(res)
                 st.session_state.messages.append({"role": "assistant", "content": res})
             except Exception as e:
-                st.error("خطا در پاسخگویی.")
+                st.error("خطا در پاسخگویی سرور متن. دوباره تلاش کنید.")
     st.rerun()
