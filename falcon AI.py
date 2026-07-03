@@ -53,7 +53,9 @@ def render_chat(key, is_sara=False):
     for msg in st.session_state[key]:
         with st.chat_message(msg["role"]):
             if msg.get("type") == "image": 
-                st.image(msg["content"], caption="تصویر تولید شده")
+                st.markdown(f"**تصویر تولید شده:**")
+                st.image(msg["content"], caption="نتیجه طراحی")
+                st.markdown(f"[📥 دانلود مستقیم تصویر]({msg['content']})")
             else: st.markdown(msg["content"])
             
     if prompt := st.chat_input("Ask..."):
@@ -61,10 +63,14 @@ def render_chat(key, is_sara=False):
         with st.chat_message("user"): st.markdown(prompt)
         with st.chat_message("assistant"):
             if tool_mode and not is_sara:
-                # استفاده از سرویس جایگزینِ پایدار
-                img_url = "https://picsum.photos/512/512"
-                st.info("تصویر با موفقیت تولید شد!")
-                st.image(img_url, caption="تصویر تولید شده توسط سیستم")
+                # استفاده از مدل FLUX برای کیفیتِ بی‌نظیر (مخصوصِ لوگو و طراحی)
+                # اضافه کردنِ کلمه Professional به پرامپت برای دقت بالاتر
+                refined_prompt = f"Professional design, high quality: {prompt}"
+                img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(refined_prompt)}?width=1024&height=1024&model=flux&nologo=true&seed=42"
+                
+                st.info("در حال طراحی با مدل FLUX...")
+                st.image(img_url, caption=f"طراحی برای: {prompt}")
+                st.markdown(f"[📥 اگر تصویر لود نشد، برای دانلود مستقیم کلیک کنید]({img_url})")
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
                 resp = get_response(st.session_state[key], is_sara)
