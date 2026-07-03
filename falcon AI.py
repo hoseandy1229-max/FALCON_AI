@@ -45,6 +45,16 @@ if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 # سایدبار
 with st.sidebar:
     st.write(f"کاربر: {st.session_state.username}")
+    
+    # بخش رمز عبور برای ادمین
+    with st.expander("🔐 تنظیمات ادمین"):
+        password = st.text_input("رمز عبور:", type="password")
+        if st.button("تایید رمز"):
+            if password == "1234": # رمز خود را اینجا تغییر دهید
+                st.session_state.username = "admin"
+                st.rerun()
+            else: st.error("رمز اشتباه!")
+
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
     selected_model = st.selectbox("مدل:", chat_models)
     
@@ -62,7 +72,7 @@ with st.sidebar:
         st.session_state.messages_sr = []
         st.rerun()
 
-    # پنل ادمین اصلاح شده
+    # پنل ادمین
     if st.session_state.username == "admin":
         st.divider()
         st.subheader("⚠️ پنل ادمین")
@@ -93,7 +103,8 @@ if prompt := st.chat_input("پیام..."):
     st.session_state.messages_sr.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
-        sys_content = "تو دستیار سارا هستی. پاسخ‌ها کاملاً فارسی، دقیق و منطقی باشند."
+        # حالت بات به حالت استاندارد برگشت داده شد
+        sys_content = "تو یک دستیار هوشمند هستی که به صورت دقیق و منطقی به زبان فارسی پاسخ می‌دهی."
         recent_messages = [{"role":"system","content":sys_content}] + st.session_state.messages_sr[-5:]
         res = or_client.chat.completions.create(
             model=selected_model, messages=recent_messages, temperature=0.2, 
