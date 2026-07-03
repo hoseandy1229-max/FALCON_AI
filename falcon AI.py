@@ -1,9 +1,7 @@
 import streamlit as st
 from groq import Groq
 from openai import OpenAI
-import urllib.parse
 import random 
-import base64
 import json
 import os
 
@@ -23,19 +21,9 @@ groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"]
 
-# سیستم احراز هویت با URL
-query_params = st.query_params
-if "user" in query_params:
-    st.session_state.username = query_params["user"][0]
-
-if "username" not in st.session_state or st.session_state.username is None:
-    st.title("ورود به Falcon AI")
-    user_input = st.text_input("نام کاربری خود را وارد کنید:")
-    if st.button("تایید و ورود"):
-        st.query_params["user"] = user_input
-        st.session_state.username = user_input
-        st.rerun()
-    st.stop()
+# سیستم احراز هویت و ارتقا به ادمین
+if "username" not in st.session_state:
+    st.session_state.username = "a"
 
 # مدیریت پوشه کاربر
 user_dir = f"history/{st.session_state.username}"
@@ -45,6 +33,17 @@ if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 # سایدبار
 with st.sidebar:
     st.write(f"کاربر: {st.session_state.username}")
+    
+    # بخش رمز عبور برای ادمین
+    with st.expander("🔐 تغییر وضعیت به ادمین"):
+        password = st.text_input("رمز عبور:", type="password")
+        if st.button("تایید"):
+            if password == "1234": # رمز عبور خود را اینجا تغییر دهید
+                st.session_state.username = "admin"
+                st.rerun()
+            else:
+                st.error("رمز اشتباه است!")
+
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
     selected_model = st.selectbox("مدل:", chat_models)
     
@@ -62,42 +61,35 @@ with st.sidebar:
         st.session_state.messages_sr = []
         st.rerun()
 
-    # پنل ادمین اصلاح شده
+    # پنل ادمین
     if st.session_state.username == "admin":
         st.divider()
         st.subheader("⚠️ پنل ادمین")
-        if os.path.exists("history/"):
-            all_users = [d for d in os.listdir("history/") if os.path.isdir(os.path.join("history/", d))]
-            if all_users:
-                sel_user = st.selectbox("انتخاب کاربر:", all_users)
-                user_chats = [f for f in os.listdir(f"history/{sel_user}") if f.endswith(".json")]
-                if user_chats:
-                    sel_chat = st.selectbox("انتخاب چت:", user_chats)
-                    if st.button("مشاهده چت"):
-                        with open(f"history/{sel_user}/{sel_chat}", 'r') as f:
-                            st.json(json.load(f))
-                else: st.info("این کاربر هنوز چتی ندارد.")
-            else: st.info("هنوز کاربری وارد نشده است.")
+        all_users = [d for d in os.listdir("history/") if os.path.isdir(os.path.join("history/", d))]
+        if all_users:
+            sel_user = st.selectbox("انتخاب کاربر:", all_users)
+            user_chats = [f for f in os.listdir(f"history/{sel_user}") if f.endswith(".json")]
+            if user_chats:
+                sel_chat = st.selectbox("انتخاب چت:", user_chats)
+                if st.button("مشاهده چت"):
+                    with open(f"history/{sel_user}/{sel_chat}", 'r') as f:
+                        st.json(json.load(f))
+            else: st.info("کاربر چتی ندارد.")
 
 # نمایش چت
 st.title("𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
-mode = st.radio("حالت:", ["💬 چت عادی", "🎨 تولید تصویر", "👁️ تحلیل عکس"], horizontal=True)
 
 for msg in st.session_state.messages_sr:
     with st.chat_message(msg["role"]):
-        if msg.get("type") == "image_gen": st.image(msg["content"])
-        else: st.markdown(msg["content"])
+        st.markdown(msg["content"])
 
-# منطق چت
 if prompt := st.chat_input("پیام..."):
     st.session_state.messages_sr.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
-        sys_content = "تو دستیار سارا هستی. پاسخ‌ها کاملاً فارسی، دقیق و منطقی باشند."
-        recent_messages = [{"role":"system","content":sys_content}] + st.session_state.messages_sr[-5:]
+        recent_messages = [{"role":"system","content":"تو دستیار هستی."}] + st.session_state.messages_sr[-5:]
         res = or_client.chat.completions.create(
-            model=selected_model, messages=recent_messages, temperature=0.2, 
-            frequency_penalty=0.8, stop=["\n\n", "###", "</s>"]
+            model=selected_model, messages=recent_messages, temperature=0.2
         ).choices[0].message.content
         st.markdown(res)
         st.session_state.messages_sr.append({"role": "assistant", "content": res})
