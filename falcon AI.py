@@ -112,7 +112,7 @@ if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
 st.title(st.session_state.bot_mode)
 with st.container():
     st.markdown("<h3 style='text-align: center;'>حالت کاری:</h3>", unsafe_allow_html=True)
-    mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی"], horizontal=True, label_visibility="collapsed")
+    mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی"], index=2, horizontal=True, label_visibility="collapsed")
 
 model_key = None
 uploaded_file = None
