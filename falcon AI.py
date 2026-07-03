@@ -26,8 +26,20 @@ if "messages_falcon" not in st.session_state: st.session_state.messages_falcon =
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 
-chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct", "google/gemini-2.0-flash-lite-preview-02-05:free"]
-vision_models = ["google/gemini-2.0-flash-lite-preview-02-05:free", "meta-llama/llama-3.2-11b-vision-instruct:free", "mistralai/pixtral-12b:free", "qwen/qwen-2.5-vl-72b-instruct:free"]
+# مدل‌های چت (سبک و همیشه در دسترس)
+chat_models = [
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "qwen/qwen-2.5-3b-instruct:free",
+    "google/gemini-2.0-flash-lite-preview-02-05:free",
+    "mistralai/mistral-nemo:free"
+]
+
+# مدل‌های تحلیل عکس (کم‌ترافیک و سریع)
+vision_models = [
+    "meta-llama/llama-3.2-11b-vision-instruct:free",
+    "qwen/qwen-2.5-vl-72b-instruct:free",
+    "google/gemini-flash-1.5-8b"
+]
 
 with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
@@ -37,17 +49,15 @@ with st.sidebar:
         else: st.session_state.messages_falcon = []
         st.rerun()
 
-# لاگین با دکمه تایید
+# لاگین با رمز sara
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("تایید ورود"):
         if pwd == "sara":
             st.session_state.auth_sr = True
-            st.session_state.messages_sr = [{"role": "assistant", "content": "سلام سارا جون."}]
             st.rerun()
-        else:
-            st.error("رمز اشتباه است!")
-    st.stop() # توقف کامل تا قبل از لاگین
+        else: st.error("رمز اشتباه است!")
+    st.stop()
 
 current_messages = st.session_state.messages_sr if bot_mode == "SR BOT" else st.session_state.messages_falcon
 st.title("مخصوص سارا" if bot_mode == "SR BOT" else "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
@@ -64,19 +74,17 @@ if mode == "👁️ تحلیل عکس":
     if uploaded_file and img_prompt and st.button("تحلیل"):
         b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
         with st.chat_message("assistant"):
-            success = False
+            # امتحان مدل‌ها به ترتیب برای تضمین پاسخ
             for model in vision_models:
                 try:
-                    res = or_client.chat.completions.create(model=model, messages=[{"role":"user", "content":[{"type":"text", "text":img_prompt}, {"type":"image_url", "image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}])
+                    res = or_client.chat.completions.create(
+                        model=model, 
+                        messages=[{"role":"user", "content":[{"type":"text", "text":img_prompt}, {"type":"image_url", "image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}])
                     content = res.choices[0].message.content
-                    st.markdown(f"**پاسخ:**\n{content}")
+                    st.markdown(f"**مدل {model.split('/')[-1]}:**\n{content}")
                     current_messages.append({"role": "assistant", "content": content})
-                    success = True
                     break
-                except Exception as e:
-                    continue
-            if not success: st.error("متاسفانه مدل‌های تحلیل در حال حاضر پاسخ نمی‌دهند.")
-
+                except: continue
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
@@ -87,7 +95,7 @@ elif prompt := st.chat_input("پیام..."):
             st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            sys = "دستیار سارا." if bot_mode=="SR BOT" else "کوتاه پاسخ بده."
+            sys = "دستیار سارا." if bot_mode=="SR BOT" else "پاسخ کوتاه."
             client = or_client if "/" in selected_model else groq_client
             res = client.chat.completions.create(model=selected_model, messages=[{"role":"system","content":sys}]+current_messages).choices[0].message.content
             st.markdown(res)
