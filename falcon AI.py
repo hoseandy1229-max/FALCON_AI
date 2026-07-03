@@ -26,19 +26,8 @@ if "messages_falcon" not in st.session_state: st.session_state.messages_falcon =
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 
-# مدل‌های رایگان و بسیار پایدار
-chat_models = [
-    "llama-3.3-70b-versatile", 
-    "llama-3.1-8b-instant",
-    "mixtral-8x7b-32768",
-    "qwen/qwen-2.5-7b-instruct:free",
-    "meta-llama/llama-3.2-3b-instruct:free"
-]
-vision_models = [
-    "meta-llama/llama-3.2-11b-vision-instruct:free",
-    "qwen/qwen-2.5-vl-72b-instruct:free",
-    "mistralai/pixtral-12b:free"
-]
+chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct", "google/gemini-2.0-flash-lite-preview-02-05:free"]
+vision_models = ["google/gemini-2.0-flash-lite-preview-02-05:free", "meta-llama/llama-3.2-11b-vision-instruct:free", "mistralai/pixtral-12b:free", "qwen/qwen-2.5-vl-72b-instruct:free"]
 
 with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
@@ -48,7 +37,7 @@ with st.sidebar:
         else: st.session_state.messages_falcon = []
         st.rerun()
 
-# سیستم رمز سارا (فقط بخش سارا)
+# لاگین با دکمه تایید
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("تایید ورود"):
@@ -56,8 +45,9 @@ if bot_mode == "SR BOT" and not st.session_state.auth_sr:
             st.session_state.auth_sr = True
             st.session_state.messages_sr = [{"role": "assistant", "content": "سلام سارا جون."}]
             st.rerun()
-        else: st.error("رمز اشتباه است!")
-    st.stop() 
+        else:
+            st.error("رمز اشتباه است!")
+    st.stop() # توقف کامل تا قبل از لاگین
 
 current_messages = st.session_state.messages_sr if bot_mode == "SR BOT" else st.session_state.messages_falcon
 st.title("مخصوص سارا" if bot_mode == "SR BOT" else "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
@@ -83,8 +73,10 @@ if mode == "👁️ تحلیل عکس":
                     current_messages.append({"role": "assistant", "content": content})
                     success = True
                     break
-                except: continue
-            if not success: st.error("مدل‌های تحلیل در دسترس نیستند.")
+                except Exception as e:
+                    continue
+            if not success: st.error("متاسفانه مدل‌های تحلیل در حال حاضر پاسخ نمی‌دهند.")
+
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
