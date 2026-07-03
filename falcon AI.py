@@ -4,101 +4,97 @@ from openai import OpenAI
 import urllib.parse
 import random 
 import base64
+import json
+import os
 
+# تنظیمات اصلی
 st.set_page_config(page_title="Falcon AI", layout="wide")
+if not os.path.exists("history"): os.makedirs("history")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    [data-testid="stChatMessage"] { 
-        border: 2px solid #39FF14 !important; 
-        background-color: #1a1d23 !important;
-        border-radius: 15px !important;
-        padding: 10px !important;
-    }
+    [data-testid="stChatMessage"] { border: 2px solid #39FF14 !important; background-color: #1a1d23 !important; border-radius: 15px !important; padding: 10px !important; }
     </style>
 """, unsafe_allow_html=True)
 
+# تنظیمات اولیه کلاینت‌ها
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
-
-if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
-if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
-if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
-
 chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"]
 
-with st.sidebar:
-    bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
-    selected_model = st.selectbox("انتخاب مدل:", chat_models)
-    if st.button("Reset"):
-        if bot_mode == "SR BOT": st.session_state.messages_sr = []
-        else: st.session_state.messages_falcon = []
-        st.rerun()
+# سیستم احراز هویت با استفاده از URL
+query_params = st.query_params
+if "user" in query_params:
+    st.session_state.username = query_params["user"][0]
 
-if bot_mode == "SR BOT" and not st.session_state.auth_sr:
-    pwd = st.text_input("رمز سارا:", type="password")
-    if st.button("تایید ورود"):
-        if pwd == "sara":
-            st.session_state.auth_sr = True
-            st.rerun()
-        else: st.error("رمز اشتباه است!")
+if "username" not in st.session_state or st.session_state.username is None:
+    st.title("ورود به Falcon AI")
+    user_input = st.text_input("نام کاربری خود را وارد کنید:")
+    if st.button("تایید و ورود"):
+        st.query_params["user"] = user_input
+        st.session_state.username = user_input
+        st.rerun()
     st.stop()
 
-current_messages = st.session_state.messages_sr if bot_mode == "SR BOT" else st.session_state.messages_falcon
-st.title("مخصوص سارا" if bot_mode == "SR BOT" else "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
+# ایجاد پوشه کاربر
+user_dir = f"history/{st.session_state.username}"
+if not os.path.exists(user_dir): os.makedirs(user_dir)
+
+if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
+
+# سایدبار
+with st.sidebar:
+    st.write(f"کاربر: {st.session_state.username}")
+    bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
+    selected_model = st.selectbox("مدل:", chat_models)
+    
+    st.subheader("سوابق من")
+    user_files = [f for f in os.listdir(user_dir) if f.endswith(".json")]
+    for file in user_files:
+        if st.button(file):
+            with open(os.path.join(user_dir, file), 'r') as f:
+                st.session_state.messages_sr = json.load(f)
+                st.rerun()
+    
+    if st.button("شروع گفتگو جدید"):
+        chat_name = f"chat_{random.randint(100, 999)}.json"
+        with open(os.path.join(user_dir, chat_name), 'w') as f: json.dump(st.session_state.messages_sr, f)
+        st.session_state.messages_sr = []
+        st.rerun()
+
+    # پنل ادمین
+    if st.session_state.username == "admin":
+        st.divider()
+        st.subheader("⚠️ پنل ادمین")
+        all_users = os.listdir("history/")
+        sel_user = st.selectbox("انتخاب کاربر:", all_users)
+        user_chats = os.listdir(f"history/{sel_user}")
+        sel_chat = st.selectbox("انتخاب چت:", user_chats)
+        if st.button("مشاهده چت"):
+            with open(f"history/{sel_user}/{sel_chat}", 'r') as f:
+                st.json(json.load(f))
+
+# نمایش چت
+st.title("𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
 mode = st.radio("حالت:", ["💬 چت عادی", "🎨 تولید تصویر", "👁️ تحلیل عکس"], horizontal=True)
 
-for msg in current_messages:
+for msg in st.session_state.messages_sr:
     with st.chat_message(msg["role"]):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-if mode == "👁️ تحلیل عکس":
-    uploaded_file = st.file_uploader("عکس:", type=['jpg', 'png', 'jpeg'])
-    img_prompt = st.text_input("سوال:", value="توضیح بده.")
-    
-    if uploaded_file and st.button("تحلیل"):
-        with st.spinner("در حال پردازش..."):
-            b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
-            vision_models = ["google/gemini-2.0-flash-exp", "meta-llama/llama-3.2-11b-vision-instruct"]
-            success = False
-            for model_id in vision_models:
-                try:
-                    res = or_client.chat.completions.create(
-                        model=model_id,
-                        messages=[{"role": "user", "content": [{"type": "text", "text": img_prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}],
-                        temperature=0.2,
-                        stop=["\n\n", "###", "</s>"]
-                    )
-                    content = res.choices[0].message.content
-                    st.markdown(f"**پاسخ:**\n{content}")
-                    current_messages.append({"role": "assistant", "content": content})
-                    success = True
-                    break 
-                except: continue
-            if not success: st.error("خطای سرور.")
-
-elif prompt := st.chat_input("پیام..."):
-    current_messages.append({"role": "user", "content": prompt})
+# منطق چت
+if prompt := st.chat_input("پیام..."):
+    st.session_state.messages_sr.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
-        if mode == "🎨 تولید تصویر":
-            trans = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system","content":"Translate to detailed English prompt."},{"role":"user","content":prompt}]).choices[0].message.content
-            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(trans)}?width=1024&height=1024&seed={random.randint(1,99999)}"
-            st.image(url)
-            current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
-        else:
-            sys_content = "تو دستیار سارا هستی. پاسخ‌ها باید کاملاً فارسی، دقیق و منطقی باشند. از به کار بردن هرگونه نماد غیرفارسی، کاراکترهای خاص یا جملات ناقص خودداری کن."
-            recent_messages = [{"role":"system","content":sys_content}] + current_messages[-5:]
-            client = or_client if "/" in selected_model else groq_client
-            res = client.chat.completions.create(
-                model=selected_model, 
-                messages=recent_messages,
-                temperature=0.2,
-                frequency_penalty=0.8,
-                stop=["\n\n", "###", "</s>"]
-            ).choices[0].message.content
-            st.markdown(res)
-            current_messages.append({"role": "assistant", "content": res})
+        sys_content = "تو دستیار سارا هستی. پاسخ‌ها کاملاً فارسی، دقیق و منطقی باشند."
+        recent_messages = [{"role":"system","content":sys_content}] + st.session_state.messages_sr[-5:]
+        res = or_client.chat.completions.create(
+            model=selected_model, messages=recent_messages, temperature=0.2, 
+            frequency_penalty=0.8, stop=["\n\n", "###", "</s>"]
+        ).choices[0].message.content
+        st.markdown(res)
+        st.session_state.messages_sr.append({"role": "assistant", "content": res})
     st.rerun()
