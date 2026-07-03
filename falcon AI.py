@@ -15,7 +15,7 @@ if not cookies.ready(): st.stop()
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌ها (بدون تغییر در ساختار اصلی)
+# استایل‌ها
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -102,6 +102,7 @@ with st.sidebar:
 # انتخاب لیست فعال
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "SR BOT" else st.session_state.messages_falcon
 
+# رمز SR BOT
 if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("ورود به سارا"):
