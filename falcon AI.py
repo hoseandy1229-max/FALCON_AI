@@ -4,12 +4,22 @@ import urllib.parse
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌دهی
+# استایل‌دهی جدید: حباب‌های مشکی و متن سبز فسفوری
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
     .sara-bg { background-color: #ffe4e6 !important; padding: 20px; border-radius: 20px; color: black; }
-    [data-testid="stChatMessage"] { background-color: #a7c7e7 !important; color: #000 !important; }
+    
+    /* حباب‌های چت مشکی با متن سبز فسفوری */
+    [data-testid="stChatMessage"] {
+        background-color: #000000 !important;
+        border: 1px solid #39FF14 !important;
+        color: #39FF14 !important;
+    }
+    /* رنگ متن داخل حباب */
+    [data-testid="stChatMessage"] p {
+        color: #39FF14 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -17,7 +27,7 @@ st.markdown("""
 api_key = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=api_key)
 
-# منوی کناری (Sidebar)
+# منوی کناری
 st.sidebar.title("تنظیمات پنل")
 if st.sidebar.button("Reset"):
     st.session_state.clear()
@@ -37,12 +47,11 @@ def get_response(messages):
 def render_chat(key):
     if key not in st.session_state: st.session_state[key] = []
     
-    # نمایش تاریخچه پیام‌ها
+    # نمایش پیام‌ها
     for msg in st.session_state[key]:
         with st.chat_message(msg["role"]):
             if msg.get("type") == "image":
-                # استفاده از HTML برای نمایش صحیح تصویر
-                st.markdown(f'<img src="{msg["content"]}" style="width:100%; border-radius:10px;">', unsafe_allow_html=True)
+                st.image(msg["content"], use_container_width=True)
             else:
                 st.markdown(msg["content"])
             
@@ -52,15 +61,11 @@ def render_chat(key):
         
         with st.chat_message("assistant"):
             if tool_mode:
-                # تولید تصویر با Pollinations
                 encoded_prompt = urllib.parse.quote(prompt)
                 img_url = f"https://pollinations.ai/p/{encoded_prompt}"
-                
-                # نمایش تصویر با روش امن HTML
-                st.markdown(f'<img src="{img_url}" style="width:100%; border-radius:10px;">', unsafe_allow_html=True)
+                st.image(img_url, use_container_width=True)
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
-                # پاسخ متنی
                 resp = get_response(st.session_state[key])
                 st.markdown(resp)
                 st.session_state[key].append({"role": "assistant", "content": resp})
