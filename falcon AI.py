@@ -3,6 +3,7 @@ from groq import Groq
 from openai import OpenAI
 import urllib.parse
 
+# تنظیمات اصلی صفحه
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
 # استایل‌دهی
@@ -10,7 +11,6 @@ st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
     [data-testid="stChatMessage"] { background-color: #000000 !important; border: 1px solid #39FF14 !important; }
-    [data-testid="stChatMessage"] p { color: #39FF14 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -33,21 +33,19 @@ def get_response(messages, is_sara=False):
     model_info = models[selected_model_key]
     
     if is_sara:
-        sys = {"role": "system", "content": "تو دستیار شخصی سارا هستی. قوانین: اگر پاسخ تایید است با 'چشم بانو' شروع کن. فقط فارسی بنویس. هیچ کاراکتر غیرفارسی استفاده نکن. پاسخ‌ها کوتاه و بدون حاشیه."}
+        sys = {"role": "system", "content": "تو دستیار شخصی سارا هستی. قوانین: اگر پاسخ تایید است با 'چشم بانو' شروع کن. فقط فارسی بنویس."}
         target_client = groq_client
         target_model = "llama-3.3-70b-versatile"
-        temp = 0.2
     else:
-        sys = {"role": "system", "content": "تو دستیار حرفه‌ای هستی. پاسخ‌های کوتاه و دقیق بده."}
+        sys = {"role": "system", "content": "تو دستیار حرفه‌ای هستی."}
         target_client = groq_client if model_info["client"] == "groq" else or_client
         target_model = model_info["name"]
-        temp = 0.5
     
     try:
-        response = target_client.chat.completions.create(model=target_model, messages=[sys] + messages, temperature=temp)
+        response = target_client.chat.completions.create(model=target_model, messages=[sys] + messages, temperature=0.3)
         return response.choices[0].message.content
     except Exception as e:
-        return f"خطا در مدل: {str(e)}"
+        return f"خطای مدل: {str(e)}"
 
 def render_chat(key, is_sara=False):
     if key not in st.session_state: st.session_state[key] = []
@@ -61,8 +59,9 @@ def render_chat(key, is_sara=False):
         with st.chat_message("user"): st.markdown(prompt)
         with st.chat_message("assistant"):
             if tool_mode and not is_sara:
-                img_url = f"https://pollinations.ai/p/{urllib.parse.quote(prompt)}"
-                st.image(img_url, caption="تصویر تولید شده", use_container_width=True)
+                # روش بهینه برای نمایش تصویر
+                img_url = f"https://pollinations.ai/p/{urllib.parse.quote(prompt)}?width=768&height=768&nologo=true"
+                st.image(img_url, caption="تصویر در حال پردازش...", use_container_width=True)
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
                 resp = get_response(st.session_state[key], is_sara)
