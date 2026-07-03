@@ -22,11 +22,10 @@ or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["
 st.sidebar.title("تنظیمات")
 models = {
     "Llama 3.3 70B (Groq)": {"client": "groq", "name": "llama-3.3-70b-versatile"},
-    "Qwen 2.5 14B (Free)": {"client": "or", "name": "qwen/qwen-2.5-14b-instruct"},
-    "Mistral Nemo 12B (Free)": {"client": "or", "name": "mistralai/mistral-nemo"}
+    "Qwen 2.5 14B (Free)": {"client": "or", "name": "qwen/qwen-2.5-14b-instruct"}
 }
 
-selected_model_key = st.sidebar.selectbox("انتخاب مدل:", list(models.keys()))
+selected_model_key = st.sidebar.selectbox("مدل:", list(models.keys()))
 tool_mode = st.sidebar.checkbox("حالت تولید تصویر")
 mode = st.sidebar.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
 
@@ -54,28 +53,30 @@ def render_chat(key, is_sara=False):
     for msg in st.session_state[key]:
         with st.chat_message(msg["role"]):
             if msg.get("type") == "image": 
-                st.markdown(f"**تصویر تولید شده:**")
-                st.image(msg["content"], caption="نتیجه")
-                st.markdown(f"[📥 دانلود مستقیم تصویر]({msg['content']})")
+                st.markdown(f"**نتیجه:**")
+                st.image(msg["content"], caption="تصویر تولید شده")
+                st.markdown(f"[📥 دانلود مستقیم]({msg['content']})")
             else: st.markdown(msg["content"])
             
-    if prompt := st.chat_input("Ask..."):
+    if prompt := st.chat_input("بنویس چی بسازم..."):
         st.session_state[key].append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
         with st.chat_message("assistant"):
             if tool_mode and not is_sara:
                 random_seed = random.randint(1, 999999)
                 
-                # اصلاح هوشمند: اگر کاربر گفت ماه، پرامپت انگلیسی دقیق ارسال شود
-                if "ماه" in prompt:
-                    final_prompt = "A realistic, high-definition photo of the moon in the night sky, cinematic, 8k, detailed"
+                # ترجمه و اصلاح هوشمندانه پرامپت
+                if "درخت" in prompt and "خشک" in prompt:
+                    final_prompt = "A detailed realistic photography of a dead, barren, lonely tree without any leaves in a desolate landscape, moody, cinematic lighting, 8k"
+                elif "ماه" in prompt:
+                    final_prompt = "A realistic, high-definition photo of the full moon in the night sky, cinematic, 8k, detailed"
                 else:
                     final_prompt = f"Real photography of {prompt}, cinematic, 8k, realistic, highly detailed"
                 
                 safe_prompt = urllib.parse.quote(final_prompt)
                 img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=1024&nologo=true&seed={random_seed}"
                 
-                st.info("در حال عکاسی توسط هوش مصنوعی...")
+                st.info("در حال عکاسی...")
                 st.image(img_url, caption=f"تصویر برای: {prompt}")
                 st.markdown(f"[📥 اگر تصویر لود نشد، برای دانلود مستقیم کلیک کنید]({img_url})")
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
