@@ -4,7 +4,6 @@ import urllib.parse
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل حباب‌ها
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -15,22 +14,26 @@ st.markdown("""
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# تنظیمات سایدبار (مدل و ابزار)
 st.sidebar.title("تنظیمات")
-selected_model = st.sidebar.selectbox("انتخاب مدل:", ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"])
-tool_mode = st.sidebar.checkbox("حالت تولید تصویر")
+# اضافه شدن مدل‌های جدید و هوشمندتر
+model_options = {
+    "Llama 3.3 70B": "llama-3.3-70b-versatile",
+    "Qwen 2.5 Coder 32B": "qwen-2.5-coder-32b",
+    "Mixtral 8x7B": "mixtral-8x7b-32768"
+}
+selected_model_name = st.sidebar.selectbox("انتخاب مدل:", list(model_options.keys()))
+tool_mode = st.sidebar.checkbox("تولید تصویر")
 mode = st.sidebar.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
 
 def get_response(messages, is_sara=False):
     if is_sara:
-        sys = {"role": "system", "content": "تو دستیار شخصی سارا هستی. قوانین: ۱. پاسخ را فقط با 'چشم بانو' شروع کن. ۲. فقط فارسی بنویس. ۳. هیچ کاراکتر غیرفارسی استفاده نکن. ۴. مطلقاً هذیان نگو و پاسخ‌ها را بسیار کوتاه و دقیق بده."}
-        # برای سارا همیشه از بهترین مدل استفاده می‌کنیم تا هذیان نگوید
+        sys = {"role": "system", "content": "تو دستیار شخصی سارا هستی. قوانین: ۱. اگر پاسخ تایید است با 'چشم بانو' شروع کن. ۲. فقط فارسی بنویس. ۳. هیچ کاراکتر غیرفارسی استفاده نکن. ۴. پاسخ‌ها باید مستقیم و بدون حاشیه باشد."}
         model_to_use = "llama-3.3-70b-versatile"
-        temp = 0.2
+        temp = 0.1 # بسیار سخت‌گیرانه
     else:
-        sys = {"role": "system", "content": "دستیار حرفه‌ای و دقیق."}
-        model_to_use = selected_model
-        temp = 0.7
+        sys = {"role": "system", "content": "تو دستیار حرفه‌ای هستی. پاسخ‌های منطقی، کوتاه و دقیق بده."}
+        model_to_use = model_options[selected_model_name]
+        temp = 0.3 # تمرکز بالا
     
     response = client.chat.completions.create(model=model_to_use, messages=[sys] + messages, temperature=temp)
     return response.choices[0].message.content
@@ -65,6 +68,7 @@ else:
         pwd = st.text_input("رمز:", type="password")
         if st.button("تایید ورود"):
             if pwd == "sara": st.session_state['auth'] = True; st.rerun()
+            else: st.error("رمز اشتباه است.")
     else:
         render_chat("sara_messages", is_sara=True)
         if st.button("خروج"): st.session_state['auth'] = False; st.rerun()
