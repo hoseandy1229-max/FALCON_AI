@@ -5,7 +5,6 @@ import urllib.parse
 import random 
 import base64
 
-# تنظیمات صفحه
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
 st.markdown("""
@@ -20,13 +19,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# بررسی وجود کلیدها
-try:
-    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-    or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
-except:
-    st.error("خطای تنظیمات: کلیدهای API در Secrets یافت نشدند.")
-    st.stop()
+groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
 if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
@@ -65,11 +59,12 @@ if mode == "👁️ تحلیل عکس":
     img_prompt = st.text_input("سوال:", value="خوبه؟")
     
     if uploaded_file and st.button("تحلیل"):
-        with st.spinner("در حال پردازش..."):
+        with st.spinner("در حال تحلیل..."):
             try:
                 b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
+                # استفاده از مدل استاندارد gemini-flash-1.5-8b
                 res = or_client.chat.completions.create(
-                    model="google/gemini-2.0-flash-lite-preview-02-05:free",
+                    model="google/gemini-flash-1.5-8b",
                     messages=[{
                         "role": "user",
                         "content": [
@@ -79,12 +74,10 @@ if mode == "👁️ تحلیل عکس":
                     }]
                 )
                 content = res.choices[0].message.content
-                st.success("پاسخ:")
-                st.markdown(content)
+                st.markdown(f"**پاسخ:**\n{content}")
                 current_messages.append({"role": "assistant", "content": content})
             except Exception as e:
-                st.error(f"خطای ارتباطی: {e}")
-                st.info("نکته: اگر این خطا تکرار شد، یعنی موجودی API Key تو در OpenRouter تمام شده است.")
+                st.error(f"خطای مدل: {e}")
 
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
