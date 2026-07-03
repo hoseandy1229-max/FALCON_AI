@@ -131,18 +131,24 @@ if prompt := st.chat_input("پیام..."):
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
         if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
-            res = analyze_image(uploaded_file, prompt, model_key)
-            st.markdown(res)
+            with st.status("در حال تجزیه و تحلیل اطلاعات...", expanded=True) as status:
+                res = analyze_image(uploaded_file, prompt, model_key)
+                st.markdown(res)
+                status.update(label="تحلیل انجام شد!", state="complete", expanded=False)
             current_messages.append({"role": "assistant", "content": res})
         elif mode == "🎨 تولید تصویر":
-            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?seed={random.randint(1,9999)}"
-            st.image(url)
+            with st.status("در حال انجام دستور تولید تصویر...", expanded=True) as status:
+                url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?seed={random.randint(1,9999)}"
+                st.image(url)
+                status.update(label="تصویر با موفقیت ساخته شد!", state="complete", expanded=False)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
-                model=selected_model, messages=[{"role":"system","content":"فارسی پاسخ بده"}] + current_messages[-5:], temperature=0.2
-            ).choices[0].message.content
-            st.markdown(res)
+            with st.status("در حال دریافت پاسخ...", expanded=True) as status:
+                res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
+                    model=selected_model, messages=[{"role":"system","content":"فارسی پاسخ بده"}] + current_messages[-5:], temperature=0.2
+                ).choices[0].message.content
+                st.markdown(res)
+                status.update(label="پاسخ آماده شد!", state="complete", expanded=False)
             current_messages.append({"role": "assistant", "content": res})
     fname = f"{st.session_state.bot_mode}_{st.session_state.username}.json"
     with open(os.path.join(user_dir, fname), 'w') as file: json.dump(current_messages, file)
