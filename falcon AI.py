@@ -59,28 +59,25 @@ if mode == "👁️ تحلیل عکس":
     img_prompt = st.text_input("سوال:", value="توضیح بده.")
     
     if uploaded_file and st.button("تحلیل"):
-        with st.spinner("در حال اتصال به سرور..."):
+        with st.spinner("در حال پردازش..."):
             b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
             vision_models = ["google/gemini-2.0-flash-exp", "meta-llama/llama-3.2-11b-vision-instruct"]
             success = False
-            
             for model_id in vision_models:
                 try:
                     res = or_client.chat.completions.create(
                         model=model_id,
                         messages=[{"role": "user", "content": [{"type": "text", "text": img_prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}],
-                        temperature=0.3
+                        temperature=0.2,
+                        stop=["\n\n", "###", "</s>"]
                     )
                     content = res.choices[0].message.content
-                    st.markdown(f"**پاسخ ({model_id.split('/')[0]}):**\n{content}")
+                    st.markdown(f"**پاسخ:**\n{content}")
                     current_messages.append({"role": "assistant", "content": content})
                     success = True
                     break 
-                except:
-                    continue 
-            
-            if not success:
-                st.error("ارتباط با تمام مدل‌های تحلیل برقرار نشد.")
+                except: continue
+            if not success: st.error("خطای سرور.")
 
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
@@ -92,15 +89,16 @@ elif prompt := st.chat_input("پیام..."):
             st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            sys_content = "تو دستیار سارا هستی. پاسخ‌هایت باید دقیق، منطقی، کوتاه و کاملاً مرتبط با متن سارا باشد. از تکرار، خیال‌پردازی و حرف‌های اضافه جداً خودداری کن." if bot_mode=="SR BOT" else "پاسخ‌ها باید مستقیم، کوتاه و دقیق باشند."
+            sys_content = "تو دستیار سارا هستی. پاسخ‌ها باید کاملاً فارسی، دقیق و منطقی باشند. از به کار بردن هرگونه نماد غیرفارسی، کاراکترهای خاص یا جملات ناقص خودداری کن."
+            recent_messages = [{"role":"system","content":sys_content}] + current_messages[-5:]
             client = or_client if "/" in selected_model else groq_client
-            
             res = client.chat.completions.create(
                 model=selected_model, 
-                messages=[{"role":"system","content":sys_content}]+current_messages,
-                temperature=0.3
+                messages=recent_messages,
+                temperature=0.2,
+                frequency_penalty=0.8,
+                stop=["\n\n", "###", "</s>"]
             ).choices[0].message.content
-            
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
     st.rerun()
