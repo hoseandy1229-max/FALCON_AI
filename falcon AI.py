@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 from openai import OpenAI
 import urllib.parse
-import random # اضافه شدن کتابخانه برای تولید اعداد تصادفی
+import random 
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
@@ -55,7 +55,7 @@ def render_chat(key, is_sara=False):
         with st.chat_message(msg["role"]):
             if msg.get("type") == "image": 
                 st.markdown(f"**تصویر تولید شده:**")
-                st.image(msg["content"], caption="نتیجه طراحی")
+                st.image(msg["content"], caption="نتیجه")
                 st.markdown(f"[📥 دانلود مستقیم تصویر]({msg['content']})")
             else: st.markdown(msg["content"])
             
@@ -64,18 +64,16 @@ def render_chat(key, is_sara=False):
         with st.chat_message("user"): st.markdown(prompt)
         with st.chat_message("assistant"):
             if tool_mode and not is_sara:
-                # تولید یک عدد کاملاً تصادفی برای Seed تا تصاویر تکراری نشوند
                 random_seed = random.randint(1, 999999)
+                # اضافه کردنِ کلماتِ کلیدی برای تولید عکس واقعی
+                refined_prompt = f"Real photography of {prompt}, cinematic, 8k, realistic, highly detailed"
+                safe_prompt = urllib.parse.quote(refined_prompt)
                 
-                # کدگذاری دقیق متن بدون اضافه کردن کلمات مزاحم شرکتی
-                safe_prompt = urllib.parse.quote(prompt)
-                
-                # آدرس جدید و کاملاً پویا با استفاده از مدل اصلی هوش مصنوعی
                 img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=1024&nologo=true&seed={random_seed}"
                 
-                st.info("در حال تولید تصویر اختصاصی شما...")
+                st.info("در حال عکاسی توسط هوش مصنوعی...")
                 st.image(img_url, caption=f"تصویر برای: {prompt}")
-                st.markdown(f"[📥 اگر تصویر لود نشد، برای دانلود مستقیم کلیک کنید]({img_url})")
+                st.markdown(f"[📥 اگر تصویر لود نشد، برای دانلود کلیک کنید]({img_url})")
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
                 resp = get_response(st.session_state[key], is_sara)
