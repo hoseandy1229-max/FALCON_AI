@@ -24,7 +24,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# مدیریت ورود نام کاربری
+# مدیریت ورود نام کاربری (یک‌بار برای همیشه)
 if "username" not in st.session_state:
     st.title("ورود به Falcon AI")
     user_input = st.text_input("نام کاربری خود را وارد کنید:")
@@ -40,11 +40,9 @@ or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["
 if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
-if "current_chat_file" not in st.session_state: st.session_state.current_chat_file = f"chat_{random.randint(1000,9999)}.json"
+if "current_file" not in st.session_state: st.session_state.current_file = f"chat_{random.randint(1000,9999)}.json"
 
 chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"]
-
-# مسیر فایل کاربر
 user_dir = f"history/{st.session_state.username}"
 if not os.path.exists(user_dir): os.makedirs(user_dir)
 
@@ -57,14 +55,17 @@ with st.sidebar:
     files = [f for f in os.listdir(user_dir) if f.endswith(".json")]
     for f in files:
         if st.button(f):
+            st.session_state.current_file = f
             with open(os.path.join(user_dir, f), 'r') as file:
-                st.session_state.messages_sr = json.load(file)
-                st.session_state.current_chat_file = f
-                st.rerun()
+                data = json.load(file)
+                if bot_mode == "SR BOT": st.session_state.messages_sr = data
+                else: st.session_state.messages_falcon = data
+            st.rerun()
     
     if st.button("ذخیره و شروع جدید"):
-        st.session_state.current_chat_file = f"chat_{random.randint(1000,9999)}.json"
-        st.session_state.messages_sr = []
+        st.session_state.current_file = f"chat_{random.randint(1000,9999)}.json"
+        if bot_mode == "SR BOT": st.session_state.messages_sr = []
+        else: st.session_state.messages_falcon = []
         st.rerun()
 
     with st.expander("🔐 پنل ادمین"):
@@ -76,21 +77,17 @@ with st.sidebar:
                 user_files = os.listdir(f"history/{sel_u}")
                 sel_f = st.selectbox("چت:", user_files)
                 if sel_f and st.button("مشاهده"):
-                    file_path = f"history/{sel_u}/{sel_f}"
-                    if os.path.exists(file_path):
-                        with open(file_path, 'r') as file:
-                            chat_data = json.load(file)
-                            for msg in chat_data:
-                                role = "👤 کاربر" if msg.get("role") == "user" else "🤖 دستیار"
-                                st.write(f"**{role}:** {msg.get('content', '')}")
+                    path = f"history/{sel_u}/{sel_f}"
+                    with open(path, 'r') as file:
+                        chat_data = json.load(file)
+                        for msg in chat_data:
+                            st.write(f"**{msg.get('role', 'unknown')}:** {msg.get('content', '')}")
         elif admin_pwd: st.error("رمز غلط")
 
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("تایید ورود"):
-        if pwd == "sara":
-            st.session_state.auth_sr = True
-            st.rerun()
+        if pwd == "sara": st.session_state.auth_sr = True; st.rerun()
         else: st.error("رمز اشتباه است!")
     st.stop()
 
@@ -117,7 +114,7 @@ if mode == "👁️ تحلیل عکس":
                     content = res.choices[0].message.content
                     st.markdown(f"**پاسخ:**\n{content}")
                     current_messages.append({"role": "assistant", "content": content})
-                    with open(os.path.join(user_dir, st.session_state.current_chat_file), 'w') as file: json.dump(current_messages, file)
+                    with open(os.path.join(user_dir, st.session_state.current_file), 'w') as file: json.dump(current_messages, file)
                     break 
                 except: continue
 
@@ -126,18 +123,18 @@ elif prompt := st.chat_input("پیام..."):
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
         if mode == "🎨 تولید تصویر":
-            trans = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system","content":"Translate to detailed English prompt."},{"role":"user","content":prompt}]).choices[0].message.content
+            trans = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system","content":"Translate to English."},{"role":"user","content":prompt}]).choices[0].message.content
             url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(trans)}?width=1024&height=1024&seed={random.randint(1,99999)}"
             st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            sys_content = "تو دستیار سارا هستی. پاسخ‌ها باید کاملاً فارسی، دقیق و منطقی باشند."
-            recent_messages = [{"role":"system","content":sys_content}] + current_messages[-5:]
-            client = or_client if "/" in selected_model else groq_client
-            res = client.chat.completions.create(model=selected_model, messages=recent_messages, temperature=0.2, frequency_penalty=0.8, stop=["\n\n", "###", "</s>"]).choices[0].message.content
+            sys_content = "تو دستیار سارا هستی. پاسخ‌ها کاملاً فارسی باشند."
+            res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
+                model=selected_model, messages=[{"role":"system","content":sys_content}] + current_messages[-5:], temperature=0.2
+            ).choices[0].message.content
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
         
-        with open(os.path.join(user_dir, st.session_state.current_chat_file), 'w') as file:
+        with open(os.path.join(user_dir, st.session_state.current_file), 'w') as file:
             json.dump(current_messages, file)
     st.rerun()
