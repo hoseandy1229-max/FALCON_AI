@@ -28,15 +28,6 @@ if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 
 chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct", "google/gemini-2.0-flash-lite-preview-02-05:free"]
 
-# لیست مدل‌های خلوت و تخصصی برای تضمین تحلیل تصویر
-vision_models = [
-    "google/gemini-2.0-flash-lite-preview-02-05:free",
-    "meta-llama/llama-3.2-11b-vision-instruct:free",
-    "mistralai/pixtral-12b:free",
-    "qwen/qwen-2.5-vl-72b-instruct:free",
-    "nousresearch/nous-hermes-2-vision-7b"
-]
-
 with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
     selected_model = st.selectbox("انتخاب مدل:", chat_models)
@@ -66,23 +57,30 @@ for msg in current_messages:
 if mode == "👁️ تحلیل عکس":
     uploaded_file = st.file_uploader("عکس:", type=['jpg', 'png', 'jpeg'])
     img_prompt = st.text_input("سوال:", value="خوبه؟")
+    
     if uploaded_file and st.button("تحلیل"):
-        b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
-        with st.chat_message("assistant"):
-            success = False
-            with st.spinner("در حال جستجوی سرور خلوت..."):
-                for m in vision_models:
-                    try:
-                        res = or_client.chat.completions.create(
-                            model=m, 
-                            messages=[{"role":"user", "content":[{"type":"text", "text":img_prompt}, {"type":"image_url", "image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}])
-                        content = res.choices[0].message.content
-                        st.markdown(f"**پاسخ:**\n{content}")
-                        current_messages.append({"role": "assistant", "content": content})
-                        success = True
-                        break
-                    except: continue
-            if not success: st.error("تمام سرورهای تحلیل شلوغ هستند. دوباره تلاش کن.")
+        with st.spinner("در حال پردازش عکس..."):
+            try:
+                # تبدیل عکس به فرمت استاندارد سبک
+                bytes_data = uploaded_file.getvalue()
+                b64 = base64.b64encode(bytes_data).decode('utf-8')
+                
+                # استفاده از مدل Gemini که پایداری بسیار بالایی دارد
+                res = or_client.chat.completions.create(
+                    model="google/gemini-2.0-flash-lite-preview-02-05:free",
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": img_prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+                        ]
+                    }]
+                )
+                content = res.choices[0].message.content
+                st.markdown(f"**پاسخ:**\n{content}")
+                current_messages.append({"role": "assistant", "content": content})
+            except Exception as e:
+                st.error("ارتباط با سرور در این لحظه ممکن نیست. لطفاً عکس دیگری انتخاب کن.")
 
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
