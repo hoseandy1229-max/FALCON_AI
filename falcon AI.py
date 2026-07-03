@@ -15,24 +15,23 @@ if not cookies.ready(): st.stop()
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌ها - فونت اختصاصی انگلیسی و وسط‌چین‌سازی کامل
+# استایل‌ها - وسط‌چین‌سازی کامل عنوان و رادیوباتن‌ها
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+    .stApp { background-color: #0e1117; color: white; }
     
-    .stApp { 
-        background-color: #0e1117; 
-        color: white; 
-        font-family: 'Roboto', sans-serif !important; 
-    }
+    h1 { text-align: center !important; }
     
-    h1 {
-        text-align: center !important;
+    div.stRadio > label {
+        display: block;
+        text-align: center;
+        width: 100%;
     }
     
     div.row-widget.stRadio > div {
-        flex-direction: row;
+        display: flex;
         justify-content: center;
+        gap: 20px;
     }
     
     .stMarkdown {
