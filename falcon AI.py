@@ -26,18 +26,8 @@ if "messages_falcon" not in st.session_state: st.session_state.messages_falcon =
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 
-# مدل‌های لیست سایدبار
-chat_models = [
-    "llama-3.3-70b-versatile", "mixtral-8x7b-32768", 
-    "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct", 
-    "mistralai/mistral-nemo-12b-instruct-v1"
-]
-# ۶ مدل برای تحلیل عکس
-vision_models = [
-    "mistralai/pixtral-12b:free", "qwen/qwen-2.5-vl-72b-instruct:free", 
-    "google/gemini-2.0-flash-lite-preview-02-05:free", "meta-llama/llama-3.2-11b-vision-instruct:free",
-    "google/gemini-flash-1.5:free", "mistralai/pixtral-large:free"
-]
+chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct", "mistralai/mistral-nemo-12b-instruct-v1"]
+vision_models = ["mistralai/pixtral-12b:free", "qwen/qwen-2.5-vl-72b-instruct:free", "google/gemini-2.0-flash-lite-preview-02-05:free", "meta-llama/llama-3.2-11b-vision-instruct:free", "google/gemini-flash-1.5:free", "mistralai/pixtral-large:free"]
 
 with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
@@ -47,7 +37,7 @@ with st.sidebar:
         else: st.session_state.messages_falcon = []
         st.rerun()
 
-# رمز اختصاصی sara برای بخش سارا
+# لاگین اجباری برای بخش SR BOT
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("تایید ورود"):
@@ -55,9 +45,11 @@ if bot_mode == "SR BOT" and not st.session_state.auth_sr:
             st.session_state.auth_sr = True
             st.session_state.messages_sr = [{"role": "assistant", "content": "سلام سارا جون."}]
             st.rerun()
-        else: st.error("رمز اشتباه است!")
-    st.stop()
+        else: 
+            st.error("رمز اشتباه است!")
+    st.stop() # توقف اجرا تا زمانی که لاگین نکرده باشد
 
+# اگر لاگین کرد یا در بخش فالکون بود ادامه بده
 current_messages = st.session_state.messages_sr if bot_mode == "SR BOT" else st.session_state.messages_falcon
 st.title("مخصوص سارا" if bot_mode == "SR BOT" else "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
 mode = st.radio("حالت:", ["💬 چت عادی", "🎨 تولید تصویر", "👁️ تحلیل عکس"], horizontal=True)
@@ -84,8 +76,7 @@ if mode == "👁️ تحلیل عکس":
                     success = True
                     break
                 except: continue
-            if not success: st.error("متاسفانه هیچکدام از مدل‌های تحلیل در دسترس نیستند.")
-
+            if not success: st.error("متاسفانه مدل‌های تحلیل در دسترس نیستند.")
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
