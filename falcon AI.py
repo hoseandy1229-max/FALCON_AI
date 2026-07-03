@@ -24,7 +24,6 @@ if st.sidebar.button("Reset"):
     st.rerun()
 
 mode = st.sidebar.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
-# اضافه کردن قابلیت انتخاب حالت تصویر در پنل
 tool_mode = st.sidebar.checkbox("حالت تولید تصویر (Image Generator)")
 
 def get_response(messages):
@@ -38,10 +37,12 @@ def get_response(messages):
 def render_chat(key):
     if key not in st.session_state: st.session_state[key] = []
     
+    # نمایش تاریخچه پیام‌ها
     for msg in st.session_state[key]:
         with st.chat_message(msg["role"]):
             if msg.get("type") == "image":
-                st.image(msg["content"])
+                # استفاده از HTML برای نمایش صحیح تصویر
+                st.markdown(f'<img src="{msg["content"]}" style="width:100%; border-radius:10px;">', unsafe_allow_html=True)
             else:
                 st.markdown(msg["content"])
             
@@ -51,10 +52,12 @@ def render_chat(key):
         
         with st.chat_message("assistant"):
             if tool_mode:
-                # تولید تصویر
+                # تولید تصویر با Pollinations
                 encoded_prompt = urllib.parse.quote(prompt)
                 img_url = f"https://pollinations.ai/p/{encoded_prompt}"
-                st.image(img_url, caption="تصویر ساخته شده")
+                
+                # نمایش تصویر با روش امن HTML
+                st.markdown(f'<img src="{img_url}" style="width:100%; border-radius:10px;">', unsafe_allow_html=True)
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
                 # پاسخ متنی
