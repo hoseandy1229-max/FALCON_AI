@@ -4,8 +4,8 @@ from openai import OpenAI
 import urllib.parse
 import random 
 import base64
+import time
 
-# تنظیمات صفحه
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
 st.markdown("""
@@ -15,26 +15,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# کلاینت‌ها (مطمئن شوید در secrets کلیدها را دارید)
+# کلاینت‌ها
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
 st.title("𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
 
-# سوئیچِ حالت کاری
 mode = st.radio("حالتِ کاری:", ["💬 چت عادی", "🎨 تولید تصویر", "👁️ تحلیل عکس"], horizontal=True)
 
 if "messages" not in st.session_state: st.session_state.messages = []
 
-# نمایش تاریخچه پیام‌ها
+# نمایش پیام‌ها
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-# --- بخش تحلیل عکس ---
+# --- مدیریتِ تحلیل عکس ---
 if mode == "👁️ تحلیل عکس":
-    uploaded_file = st.file_uploader("عکس را اینجا آپلود کن (ترجیحاً حجم کم):", type=['jpg', 'png', 'jpeg'])
+    uploaded_file = st.file_uploader("عکس را اینجا آپلود کن:", type=['jpg', 'png', 'jpeg'])
     if uploaded_file:
         bytes_data = uploaded_file.read()
         base64_img = base64.b64encode(bytes_data).decode('utf-8')
@@ -43,7 +42,7 @@ if mode == "👁️ تحلیل عکس":
             with st.spinner("در حال تحلیل..."):
                 try:
                     response = or_client.chat.completions.create(
-                        model="meta-llama/llama-3.2-11b-vision-instruct", 
+                        model="google/gemini-2.0-flash-lite-preview-02-05:free",
                         messages=[{
                             "role": "user",
                             "content": [
@@ -51,16 +50,19 @@ if mode == "👁️ تحلیل عکس":
                                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
                             ]
                         }],
-                        max_tokens=500
+                        max_tokens=800
                     )
                     res = response.choices[0].message.content
                     st.markdown(res)
                     st.session_state.messages.append({"role": "assistant", "content": res})
                 except Exception as e:
-                    st.error("❌ مدل فعلی پاسخ نداد.")
-                    st.info("لطفاً ۵ تا ۱۰ دقیقه دیگر دوباره تست کنید. این محدودیت برای مدل‌های رایگان OpenRouter کاملاً طبیعی است.")
+                    # سیستم هوشمند نمایش خطا
+                    st.error("⚠️ در حال حاضر محدودیت پردازش داریم.")
+                    st.info("لطفاً ۵ تا ۱۰ دقیقه دیگر دوباره تست کنید. این محدودیت برای مدل‌های رایگان OpenRouter طبیعی است.")
+                    if "402" in str(e):
+                        st.warning("جزئیات خطا: اعتبار یا توکن موقتاً کافی نیست.")
 
-# --- بخش ارسال پیام و تولید تصویر ---
+# --- مدیریتِ ارسال پیام ---
 if prompt := st.chat_input("پیام یا دستور خود را بنویسید..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
