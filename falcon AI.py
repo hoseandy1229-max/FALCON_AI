@@ -26,8 +26,19 @@ if "messages_falcon" not in st.session_state: st.session_state.messages_falcon =
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 
-chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct", "mistralai/mistral-nemo-12b-instruct-v1"]
-vision_models = ["mistralai/pixtral-12b:free", "qwen/qwen-2.5-vl-72b-instruct:free", "google/gemini-2.0-flash-lite-preview-02-05:free", "meta-llama/llama-3.2-11b-vision-instruct:free", "google/gemini-flash-1.5:free", "mistralai/pixtral-large:free"]
+# مدل‌های رایگان و بسیار پایدار
+chat_models = [
+    "llama-3.3-70b-versatile", 
+    "llama-3.1-8b-instant",
+    "mixtral-8x7b-32768",
+    "qwen/qwen-2.5-7b-instruct:free",
+    "meta-llama/llama-3.2-3b-instruct:free"
+]
+vision_models = [
+    "meta-llama/llama-3.2-11b-vision-instruct:free",
+    "qwen/qwen-2.5-vl-72b-instruct:free",
+    "mistralai/pixtral-12b:free"
+]
 
 with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
@@ -37,7 +48,7 @@ with st.sidebar:
         else: st.session_state.messages_falcon = []
         st.rerun()
 
-# لاگین اجباری برای بخش SR BOT
+# سیستم رمز سارا (فقط بخش سارا)
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("تایید ورود"):
@@ -45,11 +56,9 @@ if bot_mode == "SR BOT" and not st.session_state.auth_sr:
             st.session_state.auth_sr = True
             st.session_state.messages_sr = [{"role": "assistant", "content": "سلام سارا جون."}]
             st.rerun()
-        else: 
-            st.error("رمز اشتباه است!")
-    st.stop() # توقف اجرا تا زمانی که لاگین نکرده باشد
+        else: st.error("رمز اشتباه است!")
+    st.stop() 
 
-# اگر لاگین کرد یا در بخش فالکون بود ادامه بده
 current_messages = st.session_state.messages_sr if bot_mode == "SR BOT" else st.session_state.messages_falcon
 st.title("مخصوص سارا" if bot_mode == "SR BOT" else "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
 mode = st.radio("حالت:", ["💬 چت عادی", "🎨 تولید تصویر", "👁️ تحلیل عکس"], horizontal=True)
@@ -70,13 +79,12 @@ if mode == "👁️ تحلیل عکس":
                 try:
                     res = or_client.chat.completions.create(model=model, messages=[{"role":"user", "content":[{"type":"text", "text":img_prompt}, {"type":"image_url", "image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}])
                     content = res.choices[0].message.content
-                    if bot_mode == "SR BOT": content += "\n\nچشم بانو."
-                    st.markdown(f"**مدل {model.split('/')[-1]} پاسخ داد:**\n{content}")
+                    st.markdown(f"**پاسخ:**\n{content}")
                     current_messages.append({"role": "assistant", "content": content})
                     success = True
                     break
                 except: continue
-            if not success: st.error("متاسفانه مدل‌های تحلیل در دسترس نیستند.")
+            if not success: st.error("مدل‌های تحلیل در دسترس نیستند.")
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
@@ -87,8 +95,8 @@ elif prompt := st.chat_input("پیام..."):
             st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            sys = f"You are {selected_model}. دستیار سارا. برای دستور کاری بگو چشم بانو." if bot_mode=="SR BOT" else f"You are {selected_model}."
-            client = or_client if "/" in selected_model or ":" in selected_model else groq_client
+            sys = "دستیار سارا." if bot_mode=="SR BOT" else "کوتاه پاسخ بده."
+            client = or_client if "/" in selected_model else groq_client
             res = client.chat.completions.create(model=selected_model, messages=[{"role":"system","content":sys}]+current_messages).choices[0].message.content
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
