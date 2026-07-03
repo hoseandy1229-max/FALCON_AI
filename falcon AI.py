@@ -67,7 +67,7 @@ with st.sidebar:
         st.session_state.messages_sr = []
         st.rerun()
 
-    # بخش ادمین
+    # بخش ادمین اصلاح شده
     with st.expander("🔐 پنل ادمین"):
         admin_pwd = st.text_input("رمز ادمین:", type="password")
         if admin_pwd == "admin123":
@@ -77,7 +77,10 @@ with st.sidebar:
             sel_f = st.selectbox("چت:", user_files)
             if st.button("مشاهده"):
                 with open(f"history/{sel_u}/{sel_f}", 'r') as file:
-                    st.json(json.load(file))
+                    chat_data = json.load(file)
+                    for msg in chat_data:
+                        role = "👤 کاربر" if msg["role"] == "user" else "🤖 دستیار"
+                        st.write(f"**{role}:** {msg.get('content', '')}")
         elif admin_pwd: st.error("رمز غلط")
 
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
