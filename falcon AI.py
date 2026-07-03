@@ -24,7 +24,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# مدیریت ورود نام کاربری (یک‌بار برای همیشه)
+# مدیریت ورود نام کاربری
 if "username" not in st.session_state:
     st.title("ورود به Falcon AI")
     user_input = st.text_input("نام کاربری خود را وارد کنید:")
@@ -40,7 +40,7 @@ or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["
 if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
-if "current_file" not in st.session_state: st.session_state.current_file = f"chat_{random.randint(1000,9999)}.json"
+if "current_file" not in st.session_state: st.session_state.current_file = f"chat_FALCON AI_{random.randint(1000,9999)}.json"
 
 chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"]
 user_dir = f"history/{st.session_state.username}"
@@ -48,7 +48,15 @@ if not os.path.exists(user_dir): os.makedirs(user_dir)
 
 with st.sidebar:
     st.write(f"کاربر: {st.session_state.username}")
-    bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
+    new_bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
+    
+    if "bot_mode" not in st.session_state: st.session_state.bot_mode = new_bot_mode
+    if st.session_state.bot_mode != new_bot_mode:
+        st.session_state.bot_mode = new_bot_mode
+        st.session_state.current_file = f"chat_{new_bot_mode}_{random.randint(1000,9999)}.json"
+        st.rerun()
+    
+    bot_mode = new_bot_mode
     selected_model = st.selectbox("انتخاب مدل:", chat_models)
     
     st.subheader("تاریخچه گفتگوها")
@@ -63,7 +71,7 @@ with st.sidebar:
             st.rerun()
     
     if st.button("ذخیره و شروع جدید"):
-        st.session_state.current_file = f"chat_{random.randint(1000,9999)}.json"
+        st.session_state.current_file = f"chat_{bot_mode}_{random.randint(1000,9999)}.json"
         if bot_mode == "SR BOT": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
         st.rerun()
