@@ -67,20 +67,25 @@ with st.sidebar:
         st.session_state.messages_sr = []
         st.rerun()
 
-    # بخش ادمین اصلاح شده
+    # بخش ادمین ایمن‌سازی شده
     with st.expander("🔐 پنل ادمین"):
         admin_pwd = st.text_input("رمز ادمین:", type="password")
         if admin_pwd == "admin123":
             all_users = os.listdir("history/")
             sel_u = st.selectbox("کاربر:", all_users)
-            user_files = os.listdir(f"history/{sel_u}")
-            sel_f = st.selectbox("چت:", user_files)
-            if st.button("مشاهده"):
-                with open(f"history/{sel_u}/{sel_f}", 'r') as file:
-                    chat_data = json.load(file)
-                    for msg in chat_data:
-                        role = "👤 کاربر" if msg["role"] == "user" else "🤖 دستیار"
-                        st.write(f"**{role}:** {msg.get('content', '')}")
+            if sel_u:
+                user_files = os.listdir(f"history/{sel_u}")
+                sel_f = st.selectbox("چت:", user_files)
+                if sel_f and st.button("مشاهده"):
+                    file_path = f"history/{sel_u}/{sel_f}"
+                    if os.path.exists(file_path):
+                        with open(file_path, 'r') as file:
+                            chat_data = json.load(file)
+                            for msg in chat_data:
+                                role = "👤 کاربر" if msg.get("role") == "user" else "🤖 دستیار"
+                                st.write(f"**{role}:** {msg.get('content', '')}")
+                    else:
+                        st.error("فایل پیدا نشد!")
         elif admin_pwd: st.error("رمز غلط")
 
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
