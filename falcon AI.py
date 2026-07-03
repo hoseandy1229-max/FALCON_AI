@@ -40,6 +40,7 @@ or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["
 if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
+if "current_chat_file" not in st.session_state: st.session_state.current_chat_file = f"chat_{random.randint(1000,9999)}.json"
 
 chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"]
 
@@ -52,22 +53,20 @@ with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
     selected_model = st.selectbox("انتخاب مدل:", chat_models)
     
-    # بخش تاریخچه
     st.subheader("تاریخچه گفتگوها")
     files = [f for f in os.listdir(user_dir) if f.endswith(".json")]
     for f in files:
         if st.button(f):
             with open(os.path.join(user_dir, f), 'r') as file:
                 st.session_state.messages_sr = json.load(file)
+                st.session_state.current_chat_file = f
                 st.rerun()
     
     if st.button("ذخیره و شروع جدید"):
-        fname = f"chat_{random.randint(1000,9999)}.json"
-        with open(os.path.join(user_dir, fname), 'w') as file: json.dump(st.session_state.messages_sr, file)
+        st.session_state.current_chat_file = f"chat_{random.randint(1000,9999)}.json"
         st.session_state.messages_sr = []
         st.rerun()
 
-    # بخش ادمین ایمن‌سازی شده
     with st.expander("🔐 پنل ادمین"):
         admin_pwd = st.text_input("رمز ادمین:", type="password")
         if admin_pwd == "admin123":
@@ -84,8 +83,6 @@ with st.sidebar:
                             for msg in chat_data:
                                 role = "👤 کاربر" if msg.get("role") == "user" else "🤖 دستیار"
                                 st.write(f"**{role}:** {msg.get('content', '')}")
-                    else:
-                        st.error("فایل پیدا نشد!")
         elif admin_pwd: st.error("رمز غلط")
 
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
@@ -120,6 +117,7 @@ if mode == "👁️ تحلیل عکس":
                     content = res.choices[0].message.content
                     st.markdown(f"**پاسخ:**\n{content}")
                     current_messages.append({"role": "assistant", "content": content})
+                    with open(os.path.join(user_dir, st.session_state.current_chat_file), 'w') as file: json.dump(current_messages, file)
                     break 
                 except: continue
 
@@ -139,4 +137,7 @@ elif prompt := st.chat_input("پیام..."):
             res = client.chat.completions.create(model=selected_model, messages=recent_messages, temperature=0.2, frequency_penalty=0.8, stop=["\n\n", "###", "</s>"]).choices[0].message.content
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
+        
+        with open(os.path.join(user_dir, st.session_state.current_chat_file), 'w') as file:
+            json.dump(current_messages, file)
     st.rerun()
