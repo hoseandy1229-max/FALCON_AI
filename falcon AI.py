@@ -1,9 +1,11 @@
 import streamlit as st
 from groq import Groq
+from openai import OpenAI
 import urllib.parse
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
+# استایل‌دهی
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -12,31 +14,41 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+# تنظیم کلاینت‌ها
+groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
 st.sidebar.title("تنظیمات")
-# اضافه شدن مدل‌های جدید و هوشمندتر
-model_options = {
-    "Llama 3.3 70B": "llama-3.3-70b-versatile",
-    "Qwen 2.5 Coder 32B": "qwen-2.5-coder-32b",
-    "Mixtral 8x7B": "mixtral-8x7b-32768"
+models = {
+    "Llama 3.3 70B (Groq)": {"client": "groq", "name": "llama-3.3-70b-versatile"},
+    "Mistral Nemo 12B (Free)": {"client": "or", "name": "mistralai/mistral-nemo"},
+    "Qwen 2.5 7B (Free)": {"client": "or", "name": "qwen/qwen-2.5-7b-instruct"},
+    "Gemma 2 9B (Free)": {"client": "or", "name": "google/gemma-2-9b-it"}
 }
-selected_model_name = st.sidebar.selectbox("انتخاب مدل:", list(model_options.keys()))
-tool_mode = st.sidebar.checkbox("تولید تصویر")
+
+selected_model_key = st.sidebar.selectbox("انتخاب مدل:", list(models.keys()))
+tool_mode = st.sidebar.checkbox("حالت تولید تصویر")
 mode = st.sidebar.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
 
 def get_response(messages, is_sara=False):
-    if is_sara:
-        sys = {"role": "system", "content": "تو دستیار شخصی سارا هستی. قوانین: ۱. اگر پاسخ تایید است با 'چشم بانو' شروع کن. ۲. فقط فارسی بنویس. ۳. هیچ کاراکتر غیرفارسی استفاده نکن. ۴. پاسخ‌ها باید مستقیم و بدون حاشیه باشد."}
-        model_to_use = "llama-3.3-70b-versatile"
-        temp = 0.1 # بسیار سخت‌گیرانه
-    else:
-        sys = {"role": "system", "content": "تو دستیار حرفه‌ای هستی. پاسخ‌های منطقی، کوتاه و دقیق بده."}
-        model_to_use = model_options[selected_model_name]
-        temp = 0.3 # تمرکز بالا
+    model_info = models[selected_model_key]
     
-    response = client.chat.completions.create(model=model_to_use, messages=[sys] + messages, temperature=temp)
-    return response.choices[0].message.content
+    if is_sara:
+        sys = {"role": "system", "content": "تو دستیار شخصی سارا هستی. قوانین: اگر پاسخ تایید است با 'چشم بانو' شروع کن. فقط فارسی بنویس. هیچ کاراکتر غیرفارسی استفاده نکن. پاسخ‌ها کوتاه و بدون حاشیه."}
+        target_client = groq_client
+        target_model = "llama-3.3-70b-versatile"
+        temp = 0.2
+    else:
+        sys = {"role": "system", "content": "تو دستیار حرفه‌ای هستی. پاسخ‌های کوتاه و دقیق بده."}
+        target_client = groq_client if model_info["client"] == "groq" else or_client
+        target_model = model_info["name"]
+        temp = 0.5
+    
+    try:
+        response = target_client.chat.completions.create(model=target_model, messages=[sys] + messages, temperature=temp)
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"خطا در مدل: {str(e)}"
 
 def render_chat(key, is_sara=False):
     if key not in st.session_state: st.session_state[key] = []
