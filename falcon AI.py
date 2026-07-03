@@ -31,7 +31,7 @@ for msg in st.session_state.messages:
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-# --- بخش تحلیل عکس با مکانیزمِ خودکارِ تغییرِ مدل ---
+# --- بخش تحلیل عکس با لیستِ بسیار کاملِ مدل‌ها ---
 if mode == "👁️ تحلیل عکس":
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=['jpg', 'png', 'jpeg'])
     if uploaded_file:
@@ -39,12 +39,15 @@ if mode == "👁️ تحلیل عکس":
         base64_img = base64.b64encode(bytes_data).decode('utf-8')
         
         with st.chat_message("assistant"):
-            with st.spinner("در حال جستجوی سرور آزاد..."):
-                # لیست مدل‌های رایگان به ترتیب اولویت برای دور زدن شلوغی
+            with st.spinner("در حال جستجوی سرور آزاد (لطفاً کمی صبر کنید)..."):
+                # لیستِ کامل و متنوع مدل‌ها برای عبور از ترافیک
                 model_list = [
                     "mistralai/pixtral-12b:free",
                     "google/gemini-2.0-flash-lite-preview-02-05:free",
-                    "qwen/qwen-2.5-vl-72b-instruct:free"
+                    "google/gemini-2.0-flash-exp:free",
+                    "qwen/qwen-2.5-vl-72b-instruct:free",
+                    "meta-llama/llama-3.2-11b-vision-instruct",
+                    "nousresearch/hermes-3-llama-3.1-8b" 
                 ]
                 
                 success = False
@@ -70,8 +73,8 @@ if mode == "👁️ تحلیل عکس":
                         continue 
                 
                 if not success:
-                    st.error("❌ تمامی سرورهای رایگان در حال حاضر به شدت شلوغ هستند.")
-                    st.info("لطفاً چند دقیقه صبر کنید و دوباره امتحان کنید.")
+                    st.error("❌ تمامی مدل‌های رایگان در حال حاضر به شدت شلوغ هستند.")
+                    st.info("سرویس‌های رایگان OpenRouter در ساعات پرمصرف محدودیت دارند. لطفاً چند دقیقه دیگر مجدداً تلاش کنید.")
 
 # --- بخش چت و تولید تصویر ---
 if prompt := st.chat_input("پیام یا دستور خود را بنویسید..."):
@@ -94,5 +97,5 @@ if prompt := st.chat_input("پیام یا دستور خود را بنویسید.
                 st.markdown(res)
                 st.session_state.messages.append({"role": "assistant", "content": res})
             except Exception as e:
-                st.error("خطا در پاسخگویی سرور متن. دوباره تلاش کنید.")
+                st.error("خطا در پاسخگویی سرور متن. لطفاً دوباره تلاش کنید.")
     st.rerun()
