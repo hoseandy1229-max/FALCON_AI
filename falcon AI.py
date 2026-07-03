@@ -112,8 +112,12 @@ if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
 
 st.title(st.session_state.bot_mode)
 with st.container():
-    st.markdown("<h3 style='text-align: center;'>حالت:</h3>", unsafe_allow_html=True)
-    mode = st.radio("", ["💬 چت", "🎨 عکس", "👁️ تحلیل"], horizontal=True, label_visibility="collapsed")
+    st.markdown("<h3 style='text-align: center;'>حالت کاری:</h3>", unsafe_allow_html=True)
+    mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی"], horizontal=True, label_visibility="collapsed")
+
+if mode == "👁️ تحلیل عکس":
+    st.markdown("<p style='text-align: center;'>عکس را آپلود کن:</p>", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png"])
 
 for msg in current_messages:
     with st.chat_message(msg["role"]):
@@ -124,7 +128,7 @@ if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
-        if mode == "🎨 عکس":
+        if mode == "🎨 تولید تصویر":
             url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?seed={random.randint(1,9999)}"
             st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
