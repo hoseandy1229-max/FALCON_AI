@@ -15,31 +15,20 @@ if not cookies.ready(): st.stop()
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌ها - وسط‌چین‌سازی کامل عنوان و رادیوباتن‌ها
+# استایل‌ها - بزرگ‌نمایی و وسط‌چین‌سازی دقیق
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    
     h1 { text-align: center !important; }
     
-    div.stRadio > label {
-        display: block;
-        text-align: center;
-        width: 100%;
+    .stRadio { 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        font-size: 20px !important; 
     }
     
-    div.row-widget.stRadio > div {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-    }
-    
-    .stMarkdown {
-        text-align: center !important;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
+    .stRadio label { font-size: 1.2rem !important; margin: 10px; }
     
     [data-testid="stChatMessage"] { 
         border: 2px solid #39FF14 !important; 
@@ -122,7 +111,9 @@ if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
     st.stop()
 
 st.title(st.session_state.bot_mode)
-mode = st.radio("حالت:", ["💬 چت", "🎨 عکس", "👁️ تحلیل"], horizontal=True)
+with st.container():
+    st.markdown("<h3 style='text-align: center;'>حالت:</h3>", unsafe_allow_html=True)
+    mode = st.radio("", ["💬 چت", "🎨 عکس", "👁️ تحلیل"], horizontal=True, label_visibility="collapsed")
 
 for msg in current_messages:
     with st.chat_message(msg["role"]):
