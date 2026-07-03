@@ -47,6 +47,7 @@ with st.sidebar:
         else: st.session_state.messages_falcon = []
         st.rerun()
 
+# رمز اختصاصی sara برای بخش سارا
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("تایید ورود"):
