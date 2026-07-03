@@ -2,6 +2,7 @@ import streamlit as st
 from groq import Groq
 from openai import OpenAI
 import urllib.parse
+import random # اضافه شدن کتابخانه برای تولید اعداد تصادفی
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
@@ -63,13 +64,17 @@ def render_chat(key, is_sara=False):
         with st.chat_message("user"): st.markdown(prompt)
         with st.chat_message("assistant"):
             if tool_mode and not is_sara:
-                # استفاده از مدل FLUX برای کیفیتِ بی‌نظیر (مخصوصِ لوگو و طراحی)
-                # اضافه کردنِ کلمه Professional به پرامپت برای دقت بالاتر
-                refined_prompt = f"Professional design, high quality: {prompt}"
-                img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(refined_prompt)}?width=1024&height=1024&model=flux&nologo=true&seed=42"
+                # تولید یک عدد کاملاً تصادفی برای Seed تا تصاویر تکراری نشوند
+                random_seed = random.randint(1, 999999)
                 
-                st.info("در حال طراحی با مدل FLUX...")
-                st.image(img_url, caption=f"طراحی برای: {prompt}")
+                # کدگذاری دقیق متن بدون اضافه کردن کلمات مزاحم شرکتی
+                safe_prompt = urllib.parse.quote(prompt)
+                
+                # آدرس جدید و کاملاً پویا با استفاده از مدل اصلی هوش مصنوعی
+                img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=1024&nologo=true&seed={random_seed}"
+                
+                st.info("در حال تولید تصویر اختصاصی شما...")
+                st.image(img_url, caption=f"تصویر برای: {prompt}")
                 st.markdown(f"[📥 اگر تصویر لود نشد، برای دانلود مستقیم کلیک کنید]({img_url})")
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
