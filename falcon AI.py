@@ -4,7 +4,6 @@ from openai import OpenAI
 import urllib.parse
 import random 
 import base64
-import time
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
@@ -31,7 +30,7 @@ for msg in st.session_state.messages:
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-# --- مدیریتِ تحلیل عکس ---
+# --- مدیریتِ حالت‌ها ---
 if mode == "👁️ تحلیل عکس":
     uploaded_file = st.file_uploader("عکس را اینجا آپلود کن:", type=['jpg', 'png', 'jpeg'])
     if uploaded_file:
@@ -39,30 +38,26 @@ if mode == "👁️ تحلیل عکس":
         base64_img = base64.b64encode(bytes_data).decode('utf-8')
         
         with st.chat_message("assistant"):
-            with st.spinner("در حال تحلیل..."):
+            with st.spinner("در حال تحلیل با هوش مصنوعی رایگان Qwen-VL..."):
                 try:
+                    # استفاده از OpenRouter برای تحلیل عکس
                     response = or_client.chat.completions.create(
-                        model="google/gemini-2.0-flash-lite-preview-02-05:free",
+                        model="qwen/qwen-2.5-vl-72b-instruct", # مدل رایگان و بسیار قوی برای تصویر
                         messages=[{
                             "role": "user",
                             "content": [
-                                {"type": "text", "text": "این تصویر را به فارسی تحلیل کن."},
+                                {"type": "text", "text": "این تصویر را به فارسی تحلیل کن و دقیق بگو چه چیزی در آن می‌بینی."},
                                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
                             ]
-                        }],
-                        max_tokens=800
+                        }]
                     )
                     res = response.choices[0].message.content
                     st.markdown(res)
                     st.session_state.messages.append({"role": "assistant", "content": res})
                 except Exception as e:
-                    # سیستم هوشمند نمایش خطا
-                    st.error("⚠️ در حال حاضر محدودیت پردازش داریم.")
-                    st.info("لطفاً ۵ تا ۱۰ دقیقه دیگر دوباره تست کنید. این محدودیت برای مدل‌های رایگان OpenRouter طبیعی است.")
-                    if "402" in str(e):
-                        st.warning("جزئیات خطا: اعتبار یا توکن موقتاً کافی نیست.")
+                    st.error(f"خطای OpenRouter: {str(e)}")
 
-# --- مدیریتِ ارسال پیام ---
+# کادر ارسال پیام
 if prompt := st.chat_input("پیام یا دستور خود را بنویسید..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
@@ -75,13 +70,11 @@ if prompt := st.chat_input("پیام یا دستور خود را بنویسید.
             st.image(url, caption="تصویر تولید شده")
             st.session_state.messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            try:
-                res = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "system", "content": "کوتاه و فارسی پاسخ بده"}] + st.session_state.messages
-                ).choices[0].message.content
-                st.markdown(res)
-                st.session_state.messages.append({"role": "assistant", "content": res})
-            except Exception as e:
-                st.error("خطا در پاسخگویی. لحظاتی دیگر دوباره تلاش کنید.")
+            # چت عادی با Llama 3.3
+            res = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "system", "content": "کوتاه و فارسی پاسخ بده"}] + st.session_state.messages
+            ).choices[0].message.content
+            st.markdown(res)
+            st.session_state.messages.append({"role": "assistant", "content": res})
     st.rerun()
