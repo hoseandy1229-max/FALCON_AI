@@ -26,20 +26,8 @@ if "messages_falcon" not in st.session_state: st.session_state.messages_falcon =
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 
-# مدل‌های چت (سبک و همیشه در دسترس)
-chat_models = [
-    "meta-llama/llama-3.2-3b-instruct:free",
-    "qwen/qwen-2.5-3b-instruct:free",
-    "google/gemini-2.0-flash-lite-preview-02-05:free",
-    "mistralai/mistral-nemo:free"
-]
-
-# مدل‌های تحلیل عکس (کم‌ترافیک و سریع)
-vision_models = [
-    "meta-llama/llama-3.2-11b-vision-instruct:free",
-    "qwen/qwen-2.5-vl-72b-instruct:free",
-    "google/gemini-flash-1.5-8b"
-]
+chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct", "google/gemini-2.0-flash-lite-preview-02-05:free"]
+vision_models = ["google/gemini-2.0-flash-lite-preview-02-05:free", "meta-llama/llama-3.2-11b-vision-instruct:free"]
 
 with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
@@ -49,7 +37,6 @@ with st.sidebar:
         else: st.session_state.messages_falcon = []
         st.rerun()
 
-# لاگین با رمز sara
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("تایید ورود"):
@@ -70,21 +57,23 @@ for msg in current_messages:
 
 if mode == "👁️ تحلیل عکس":
     uploaded_file = st.file_uploader("عکس:", type=['jpg', 'png', 'jpeg'])
-    img_prompt = st.text_input("سوال:")
-    if uploaded_file and img_prompt and st.button("تحلیل"):
+    img_prompt = st.text_input("سوال:", value="خوبه؟")
+    if uploaded_file and st.button("تحلیل"):
         b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
         with st.chat_message("assistant"):
-            # امتحان مدل‌ها به ترتیب برای تضمین پاسخ
+            success = False
             for model in vision_models:
                 try:
                     res = or_client.chat.completions.create(
                         model=model, 
                         messages=[{"role":"user", "content":[{"type":"text", "text":img_prompt}, {"type":"image_url", "image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}])
                     content = res.choices[0].message.content
-                    st.markdown(f"**مدل {model.split('/')[-1]}:**\n{content}")
+                    st.markdown(f"**پاسخ:**\n{content}")
                     current_messages.append({"role": "assistant", "content": content})
+                    success = True
                     break
                 except: continue
+            if not success: st.error("خطا در ارتباط با سرور تحلیل عکس.")
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
