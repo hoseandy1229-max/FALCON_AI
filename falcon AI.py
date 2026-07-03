@@ -26,7 +26,7 @@ if "messages_falcon" not in st.session_state: st.session_state.messages_falcon =
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 
-chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct", "google/gemini-2.0-flash-lite-preview-02-05:free"]
+chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"]
 
 with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
@@ -56,28 +56,37 @@ for msg in current_messages:
 
 if mode == "👁️ تحلیل عکس":
     uploaded_file = st.file_uploader("عکس:", type=['jpg', 'png', 'jpeg'])
-    img_prompt = st.text_input("سوال:", value="خوبه؟")
+    img_prompt = st.text_input("سوال:", value="توضیح بده.")
     
     if uploaded_file and st.button("تحلیل"):
-        with st.spinner("در حال تحلیل..."):
-            try:
-                b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
-                # استفاده از مدل استاندارد gemini-flash-1.5-8b
-                res = or_client.chat.completions.create(
-                    model="google/gemini-flash-1.5-8b",
-                    messages=[{
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": img_prompt},
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
-                        ]
-                    }]
-                )
-                content = res.choices[0].message.content
-                st.markdown(f"**پاسخ:**\n{content}")
-                current_messages.append({"role": "assistant", "content": content})
-            except Exception as e:
-                st.error(f"خطای مدل: {e}")
+        with st.spinner("در حال اتصال به سرور..."):
+            b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
+            # لیست مدل‌های اولویت‌دار
+            vision_models = ["google/gemini-2.0-flash-exp", "meta-llama/llama-3.2-11b-vision-instruct"]
+            success = False
+            
+            for model_id in vision_models:
+                try:
+                    res = or_client.chat.completions.create(
+                        model=model_id,
+                        messages=[{
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": img_prompt},
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+                            ]
+                        }]
+                    )
+                    content = res.choices[0].message.content
+                    st.markdown(f"**پاسخ ({model_id.split('/')[0]}):**\n{content}")
+                    current_messages.append({"role": "assistant", "content": content})
+                    success = True
+                    break # اگر موفق شد، حلقه تمام
+                except:
+                    continue # اگر مدل اول نشد، برو بعدی
+            
+            if not success:
+                st.error("ارتباط با تمام مدل‌های تحلیل برقرار نشد. لطفاً اکانت OpenRouter خود را چک کنید.")
 
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
