@@ -46,16 +46,16 @@ if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 with st.sidebar:
     st.write(f"کاربر: {st.session_state.username}")
     
-    # بخش رمز عبور برای ادمین
-    with st.expander("🔐 تنظیمات ادمین"):
-        password = st.text_input("رمز عبور:", type="password")
-        if st.button("تایید رمز"):
-            if password == "1234": # رمز خود را اینجا تغییر دهید
-                st.session_state.username = "admin"
-                st.rerun()
-            else: st.error("رمز اشتباه!")
+    # بخش رمز عبور ادمین
+    password = st.text_input("🔑 رمز عبور ادمین:", type="password")
+    if st.button("تایید رمز"):
+        if password == "1234": # رمز خود را اینجا بگذار
+            st.session_state.username = "admin"
+            st.rerun()
+        else:
+            st.error("رمز اشتباه است!")
 
-    bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
+    bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"], key="bot_mode")
     selected_model = st.selectbox("مدل:", chat_models)
     
     st.subheader("سوابق من")
@@ -103,8 +103,12 @@ if prompt := st.chat_input("پیام..."):
     st.session_state.messages_sr.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
-        # حالت بات به حالت استاندارد برگشت داده شد
-        sys_content = "تو یک دستیار هوشمند هستی که به صورت دقیق و منطقی به زبان فارسی پاسخ می‌دهی."
+        # بررسی منطق انتخاب بات
+        if st.session_state.bot_mode == "SR BOT":
+            sys_content = "تو دستیار سارا هستی. پاسخ‌ها کاملاً فارسی، دقیق و منطقی باشند."
+        else:
+            sys_content = "تو یک دستیار هوشمند هستی که به صورت دقیق و منطقی به زبان فارسی پاسخ می‌دهی."
+            
         recent_messages = [{"role":"system","content":sys_content}] + st.session_state.messages_sr[-5:]
         res = or_client.chat.completions.create(
             model=selected_model, messages=recent_messages, temperature=0.2, 
