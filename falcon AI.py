@@ -6,7 +6,7 @@ import random
 import base64
 import json
 import os
-from cookiesmanager import EncryptedCookieManager # اضافه شده
+from streamlit_cookies_manager import EncryptedCookieManager # اضافه شده
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="falcon_ai", password="some_secret_password")
