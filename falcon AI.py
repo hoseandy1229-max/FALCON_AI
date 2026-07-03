@@ -37,7 +37,7 @@ with st.sidebar:
         st.rerun()
 
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
-    pwd = st.text_input("رمز سارا:", type="password")
+    pwd = st.text_input("𝑺𝑹 𝑩𝑶𝑻:", type="password")
     if st.button("تایید ورود"):
         if pwd == "sara":
             st.session_state.auth_sr = True
