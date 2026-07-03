@@ -4,6 +4,7 @@ import urllib.parse
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
+# استایل حباب‌ها
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -14,20 +15,24 @@ st.markdown("""
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
+# تنظیمات سایدبار (مدل و ابزار)
+st.sidebar.title("تنظیمات")
+selected_model = st.sidebar.selectbox("انتخاب مدل:", ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"])
+tool_mode = st.sidebar.checkbox("حالت تولید تصویر")
+mode = st.sidebar.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
+
 def get_response(messages, is_sara=False):
     if is_sara:
-        sys = {
-            "role": "system", 
-            "content": "تو دستیار شخصی سارا هستی. قوانین: ۱. پاسخ را فقط با 'چشم بانو' شروع کن. ۲. فقط فارسی بنویس. ۳. هیچ کاراکتر غیرفارسی استفاده نکن. ۴. مطلقاً هذیان نگو و پاسخ‌ها را بسیار کوتاه و دقیق بده."
-        }
-        model = "llama-3.3-70b-versatile"
+        sys = {"role": "system", "content": "تو دستیار شخصی سارا هستی. قوانین: ۱. پاسخ را فقط با 'چشم بانو' شروع کن. ۲. فقط فارسی بنویس. ۳. هیچ کاراکتر غیرفارسی استفاده نکن. ۴. مطلقاً هذیان نگو و پاسخ‌ها را بسیار کوتاه و دقیق بده."}
+        # برای سارا همیشه از بهترین مدل استفاده می‌کنیم تا هذیان نگوید
+        model_to_use = "llama-3.3-70b-versatile"
         temp = 0.2
     else:
         sys = {"role": "system", "content": "دستیار حرفه‌ای و دقیق."}
-        model = "llama-3.1-8b-instant"
+        model_to_use = selected_model
         temp = 0.7
     
-    response = client.chat.completions.create(model=model, messages=[sys] + messages, temperature=temp)
+    response = client.chat.completions.create(model=model_to_use, messages=[sys] + messages, temperature=temp)
     return response.choices[0].message.content
 
 def render_chat(key, is_sara=False):
@@ -51,10 +56,6 @@ def render_chat(key, is_sara=False):
                 st.session_state[key].append({"role": "assistant", "content": resp})
             st.rerun()
 
-st.sidebar.title("تنظیمات")
-tool_mode = st.sidebar.checkbox("تولید تصویر")
-mode = st.sidebar.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"])
-
 if mode == "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰":
     st.title("𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
     render_chat("messages")
@@ -64,7 +65,6 @@ else:
         pwd = st.text_input("رمز:", type="password")
         if st.button("تایید ورود"):
             if pwd == "sara": st.session_state['auth'] = True; st.rerun()
-            else: st.error("رمز اشتباه است.")
     else:
         render_chat("sara_messages", is_sara=True)
         if st.button("خروج"): st.session_state['auth'] = False; st.rerun()
