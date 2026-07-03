@@ -15,20 +15,24 @@ if not cookies.ready(): st.stop()
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌ها - بزرگ‌نمایی و وسط‌چین‌سازی دقیق
+# استایل‌ها - اصلاح شده برای چیدمان افقی در موبایل
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
     h1 { text-align: center !important; }
     
-    .stRadio { 
-        display: flex; 
-        flex-direction: column; 
-        align-items: center; 
-        font-size: 20px !important; 
+    /* اصلاح چیدمان رادیو برای نمایش افقی در موبایل */
+    div[data-testid="stRadio"] > div { 
+        display: flex !important; 
+        flex-direction: row !important; 
+        justify-content: center !important; 
+        gap: 10px !important; 
     }
     
-    .stRadio label { font-size: 1.2rem !important; margin: 10px; }
+    div[data-testid="stRadio"] label { 
+        font-size: 14px !important; 
+        padding: 5px !important; 
+    }
     
     [data-testid="stChatMessage"] { 
         border: 2px solid #39FF14 !important; 
