@@ -30,7 +30,7 @@ with st.sidebar:
     if not st.session_state.auth:
         pwd = st.text_input("رمز عبور مدیریت:", type="password")
         if st.button("ورود"):
-            if pwd == "1234": # پسورد خود را اینجا تغییر دهید
+            if pwd == "Falcon1229": # پسورد خود را اینجا تغییر دهید
                 st.session_state.auth = True
                 st.rerun()
             else:
