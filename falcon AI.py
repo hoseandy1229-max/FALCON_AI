@@ -6,7 +6,7 @@ import random
 import base64
 import json
 import os
-from streamlit_cookies_manager import EncryptedCookieManager # اضافه شده
+from streamlit_cookies_manager import EncryptedCookieManager
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="falcon_ai", password="some_secret_password")
@@ -15,11 +15,30 @@ if not cookies.ready(): st.stop()
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌ها
+# استایل‌ها - کلاسیک و وسط‌چین
 st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+    
+    html, body, [class*="st-"] {
+        font-family: 'Vazirmatn', sans-serif !important;
+    }
+
     .stApp { background-color: #0e1117; color: white; }
-    [data-testid="stChatMessage"] { border: 2px solid #39FF14 !important; background-color: #1a1d23 !important; border-radius: 15px !important; padding: 10px !important; }
+    
+    h1, .stRadio, .stMarkdown {
+        text-align: center !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    [data-testid="stChatMessage"] { 
+        border: 2px solid #39FF14 !important; 
+        background-color: #1a1d23 !important; 
+        border-radius: 15px !important; 
+        padding: 10px !important; 
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -117,7 +136,6 @@ if prompt := st.chat_input("پیام..."):
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
     
-    # ذخیره خودکار در فایلی که نامش بر اساس مود است
     fname = f"{st.session_state.bot_mode}_{st.session_state.username}.json"
     with open(os.path.join(user_dir, fname), 'w') as file: json.dump(current_messages, file)
     st.rerun()
