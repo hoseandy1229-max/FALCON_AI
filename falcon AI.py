@@ -53,8 +53,8 @@ def render_chat(key, is_sara=False):
     for msg in st.session_state[key]:
         with st.chat_message(msg["role"]):
             if msg.get("type") == "image": 
-                st.markdown(f'<img src="{msg["content"]}" style="width:100%; border-radius:10px;">', unsafe_allow_html=True)
-                st.markdown(f"[تصویر را از اینجا باز یا آپلود کنید]({msg['content']})")
+                st.info("تصویر تولید شد!")
+                st.markdown(f"[📥 برای مشاهده یا دانلود تصویر کلیک کنید]({msg['content']})")
             else: st.markdown(msg["content"])
             
     if prompt := st.chat_input("Ask..."):
@@ -63,8 +63,8 @@ def render_chat(key, is_sara=False):
         with st.chat_message("assistant"):
             if tool_mode and not is_sara:
                 img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?width=512&height=512&nologo=true"
-                st.markdown(f'<img src="{img_url}" style="width:100%; border-radius:10px;">', unsafe_allow_html=True)
-                st.markdown(f"[تصویر را از اینجا باز یا آپلود کنید]({img_url})")
+                st.info("تصویر تولید شد!")
+                st.markdown(f"[📥 برای مشاهده یا دانلود تصویر کلیک کنید]({img_url})")
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
                 resp = get_response(st.session_state[key], is_sara)
