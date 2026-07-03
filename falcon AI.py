@@ -4,6 +4,11 @@ from openai import OpenAI
 import urllib.parse
 import random 
 import base64
+import json
+import os
+
+# ایجاد پوشه تاریخچه
+if not os.path.exists("history"): os.makedirs("history")
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
@@ -19,6 +24,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# مدیریت ورود نام کاربری
+if "username" not in st.session_state:
+    st.title("ورود به Falcon AI")
+    user_input = st.text_input("نام کاربری خود را وارد کنید:")
+    if st.button("تایید و ورود"):
+        st.session_state.username = user_input
+        st.rerun()
+    st.stop()
+
+# تنظیمات کلاینت‌ها
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
@@ -28,13 +43,42 @@ if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 
 chat_models = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"]
 
+# مسیر فایل کاربر
+user_dir = f"history/{st.session_state.username}"
+if not os.path.exists(user_dir): os.makedirs(user_dir)
+
 with st.sidebar:
+    st.write(f"کاربر: {st.session_state.username}")
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
     selected_model = st.selectbox("انتخاب مدل:", chat_models)
-    if st.button("Reset"):
-        if bot_mode == "SR BOT": st.session_state.messages_sr = []
-        else: st.session_state.messages_falcon = []
+    
+    # بخش تاریخچه
+    st.subheader("تاریخچه گفتگوها")
+    files = [f for f in os.listdir(user_dir) if f.endswith(".json")]
+    for f in files:
+        if st.button(f):
+            with open(os.path.join(user_dir, f), 'r') as file:
+                st.session_state.messages_sr = json.load(file)
+                st.rerun()
+    
+    if st.button("ذخیره و شروع جدید"):
+        fname = f"chat_{random.randint(1000,9999)}.json"
+        with open(os.path.join(user_dir, fname), 'w') as file: json.dump(st.session_state.messages_sr, file)
+        st.session_state.messages_sr = []
         st.rerun()
+
+    # بخش ادمین
+    with st.expander("🔐 پنل ادمین"):
+        admin_pwd = st.text_input("رمز ادمین:", type="password")
+        if admin_pwd == "admin123":
+            all_users = os.listdir("history/")
+            sel_u = st.selectbox("کاربر:", all_users)
+            user_files = os.listdir(f"history/{sel_u}")
+            sel_f = st.selectbox("چت:", user_files)
+            if st.button("مشاهده"):
+                with open(f"history/{sel_u}/{sel_f}", 'r') as file:
+                    st.json(json.load(file))
+        elif admin_pwd: st.error("رمز غلط")
 
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
@@ -62,22 +106,14 @@ if mode == "👁️ تحلیل عکس":
         with st.spinner("در حال پردازش..."):
             b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
             vision_models = ["google/gemini-2.0-flash-exp", "meta-llama/llama-3.2-11b-vision-instruct"]
-            success = False
             for model_id in vision_models:
                 try:
-                    res = or_client.chat.completions.create(
-                        model=model_id,
-                        messages=[{"role": "user", "content": [{"type": "text", "text": img_prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}],
-                        temperature=0.2,
-                        stop=["\n\n", "###", "</s>"]
-                    )
+                    res = or_client.chat.completions.create(model=model_id, messages=[{"role": "user", "content": [{"type": "text", "text": img_prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}], temperature=0.2)
                     content = res.choices[0].message.content
                     st.markdown(f"**پاسخ:**\n{content}")
                     current_messages.append({"role": "assistant", "content": content})
-                    success = True
                     break 
                 except: continue
-            if not success: st.error("خطای سرور.")
 
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
@@ -89,16 +125,10 @@ elif prompt := st.chat_input("پیام..."):
             st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            sys_content = "تو دستیار سارا هستی. پاسخ‌ها باید کاملاً فارسی، دقیق و منطقی باشند. از به کار بردن هرگونه نماد غیرفارسی، کاراکترهای خاص یا جملات ناقص خودداری کن."
+            sys_content = "تو دستیار سارا هستی. پاسخ‌ها باید کاملاً فارسی، دقیق و منطقی باشند."
             recent_messages = [{"role":"system","content":sys_content}] + current_messages[-5:]
             client = or_client if "/" in selected_model else groq_client
-            res = client.chat.completions.create(
-                model=selected_model, 
-                messages=recent_messages,
-                temperature=0.2,
-                frequency_penalty=0.8,
-                stop=["\n\n", "###", "</s>"]
-            ).choices[0].message.content
+            res = client.chat.completions.create(model=selected_model, messages=recent_messages, temperature=0.2, frequency_penalty=0.8, stop=["\n\n", "###", "</s>"]).choices[0].message.content
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
     st.rerun()
