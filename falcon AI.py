@@ -5,7 +5,7 @@ import urllib.parse
 
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
-# استایل‌دهی برای ظاهر تاریک و سبز
+# استایل‌دهی
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -14,7 +14,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# تنظیم کلاینت‌ها
+# کلاینت‌ها
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
@@ -54,6 +54,7 @@ def render_chat(key, is_sara=False):
         with st.chat_message(msg["role"]):
             if msg.get("type") == "image": 
                 st.markdown(f'<img src="{msg["content"]}" style="width:100%; border-radius:10px;">', unsafe_allow_html=True)
+                st.markdown(f"[تصویر را از اینجا باز یا آپلود کنید]({msg['content']})")
             else: st.markdown(msg["content"])
             
     if prompt := st.chat_input("Ask..."):
@@ -61,9 +62,9 @@ def render_chat(key, is_sara=False):
         with st.chat_message("user"): st.markdown(prompt)
         with st.chat_message("assistant"):
             if tool_mode and not is_sara:
-                # استفاده از دامین بهینه شده برای لود بهتر در موبایل
                 img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?width=512&height=512&nologo=true"
                 st.markdown(f'<img src="{img_url}" style="width:100%; border-radius:10px;">', unsafe_allow_html=True)
+                st.markdown(f"[تصویر را از اینجا باز یا آپلود کنید]({img_url})")
                 st.session_state[key].append({"role": "assistant", "content": img_url, "type": "image"})
             else:
                 resp = get_response(st.session_state[key], is_sara)
