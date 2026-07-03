@@ -6,6 +6,11 @@ import random
 import base64
 import json
 import os
+from cookiesmanager import EncryptedCookieManager # اضافه شده
+
+# مدیریت کوکی
+cookies = EncryptedCookieManager(prefix="falcon_ai", password="some_secret_password")
+if not cookies.ready(): st.stop()
 
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide")
@@ -18,14 +23,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# لاگین
+# لاگین با استفاده از کوکی
 if "username" not in st.session_state:
-    st.title("ورود به Falcon AI")
-    user_input = st.text_input("نام کاربری:")
-    if st.button("تایید"):
-        st.session_state.username = user_input
-        st.rerun()
-    st.stop()
+    if "username" in cookies:
+        st.session_state.username = cookies["username"]
+    else:
+        st.title("ورود به Falcon AI")
+        user_input = st.text_input("نام کاربری:")
+        if st.button("تایید"):
+            st.session_state.username = user_input
+            cookies["username"] = user_input
+            cookies.save()
+            st.rerun()
+        st.stop()
 
 # تنظیمات
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
