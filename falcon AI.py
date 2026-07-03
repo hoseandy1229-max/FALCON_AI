@@ -6,6 +6,7 @@ import random
 import base64
 import json
 import os
+import time
 from streamlit_cookies_manager import EncryptedCookieManager
 
 # مدیریت کوکی
@@ -80,14 +81,17 @@ with st.sidebar:
         if st.button(f):
             with open(os.path.join(user_dir, f), 'r') as file:
                 data = json.load(file)
+                st.session_state.current_file = f
                 if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = data
                 else: st.session_state.messages_falcon = data
             st.rerun()
     if st.button("شروع جدید"):
+        new_fname = f"{st.session_state.bot_mode}_{st.session_state.username}_{int(time.time())}.json"
+        st.session_state.current_file = new_fname
         if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
         st.rerun()
-    # پنل ادمین
+    
     with st.expander("🔐 پنل ادمین"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
@@ -99,10 +103,8 @@ with st.sidebar:
                         for msg in json.load(file): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
         elif admin_pwd: st.error("رمز غلط")
 
-# انتخاب لیست فعال
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "SR BOT" else st.session_state.messages_falcon
 
-# رمز SR BOT
 if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("ورود به سارا"):
@@ -150,6 +152,9 @@ if prompt := st.chat_input("پیام..."):
                 st.markdown(res)
                 status.update(label="پاسخ آماده شد!", state="complete", expanded=False)
             current_messages.append({"role": "assistant", "content": res})
-    fname = f"{st.session_state.bot_mode}_{st.session_state.username}.json"
-    with open(os.path.join(user_dir, fname), 'w') as file: json.dump(current_messages, file)
+    
+    if "current_file" not in st.session_state:
+        st.session_state.current_file = f"{st.session_state.bot_mode}_{st.session_state.username}.json"
+    with open(os.path.join(user_dir, st.session_state.current_file), 'w', encoding='utf-8') as file: 
+        json.dump(current_messages, file, ensure_ascii=False)
     st.rerun()
