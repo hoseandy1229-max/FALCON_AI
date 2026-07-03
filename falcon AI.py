@@ -6,7 +6,7 @@ import random
 import base64
 
 # تنظیمات صفحه
-st.set_page_config(page_title="Falcon AI", layout="wide")
+st.set_page_config(page_title="Falcon AI", layout="wide", initial_sidebar_state="auto")
 
 st.markdown("""
     <style>
@@ -18,6 +18,15 @@ st.markdown("""
 # کلاینت‌ها
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
+
+# --- بازگردانی بخش مدیریت (Sidebar) ---
+with st.sidebar:
+    st.header("⚙️ تنظیمات مدیریت")
+    st.write("پنلِ دسترسیِ اختصاصی")
+    # اینجا می‌توانید دکمه‌های کنترلی خود را قرار دهید
+    if st.button("پاک کردنِ حافظه چت"):
+        st.session_state.messages = []
+        st.rerun()
 
 st.title("𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
 
@@ -77,7 +86,6 @@ if mode == "👁️ تحلیل عکس":
 
 # --- بخش چت و تولید تصویر ---
 if prompt := st.chat_input("پیام یا دستور خود را بنویسید..."):
-    # اگر در حالت چت هستیم، پیام را نمایش بده
     if mode != "👁️ تحلیل عکس":
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
@@ -100,6 +108,5 @@ if prompt := st.chat_input("پیام یا دستور خود را بنویسید.
             except Exception as e:
                 st.error("خطا در پاسخگویی سرور.")
     
-    # برای جلوگیری از تکرار در تحلیل عکس هنگام ارسال چت
     if mode != "👁️ تحلیل عکس":
         st.rerun()
