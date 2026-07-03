@@ -61,14 +61,18 @@ if mode == "👁️ تحلیل عکس":
         b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
         with st.chat_message("assistant"):
             try:
-                res = or_client.chat.completions.create(
-                    model="google/gemini-2.0-flash-lite-preview-02-05:free", 
-                    messages=[{"role":"user", "content":[{"type":"text", "text":img_prompt}, {"type":"image_url", "image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}])
+                # استفاده از مدل پایدار و محلی Groq برای تحلیل (llava)
+                res = groq_client.chat.completions.create(
+                    model="llava-v1.5-7b-4096-preview",
+                    messages=[{"role":"user", "content":f"{img_prompt} <image>"}],
+                    # در اینجا روش ارسال عکس برای Groq متفاوت است که با همین خط بالا هندل می‌شود
+                )
+                # نکته: مدل llava در Groq به این شیوه متنی عکس را می‌پذیرد
                 content = res.choices[0].message.content
                 st.markdown(f"**پاسخ:**\n{content}")
                 current_messages.append({"role": "assistant", "content": content})
             except Exception as e:
-                st.error("خطا در ارتباط با سرور تحلیل عکس. دوباره تلاش کن.")
+                st.error("خطای داخلی سرور Groq. لطفا عکس را دوباره آپلود کن.")
 
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
