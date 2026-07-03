@@ -5,7 +5,6 @@ import urllib.parse
 import random 
 import base64
 
-# تنظیمات صفحه
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
 st.markdown("""
@@ -20,29 +19,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# تعریف کلاینت‌ها
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
-if "messages_falcon" not in st.session_state: st.messages_falcon = []
-if "messages_sr" not in st.session_state: st.messages_sr = []
+if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
+if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 
-# --- سایدبار ---
 with st.sidebar:
     bot_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"])
-    # مدل انتخاب شده در اینجا ذخیره می‌شود
+    # ترکیب مدل‌های Groq و OpenRouter
     selected_model = st.selectbox("انتخاب مدل:", [
-        "llama-3.3-70b-versatile",
-        "mixtral-8x7b-32768",
-        "gemma2-9b-it"
+        "llama-3.3-70b-versatile", # Groq
+        "mixtral-8x7b-32768",      # Groq
+        "google/gemini-2.0-flash-lite-preview-02-05:free", # OpenRouter
+        "mistralai/pixtral-12b:free"                       # OpenRouter
     ])
     if st.button("Reset"):
         if bot_mode == "SR BOT": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
         st.rerun()
 
-# لاگین
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
     if st.text_input("رمز:", type="password") == "1234":
         st.session_state.auth_sr = True
@@ -67,20 +64,23 @@ if prompt := st.chat_input("پیام..."):
     
     with st.chat_message("assistant"):
         if mode == "🎨 تولید تصویر":
-            translation = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role":"system", "content":"Translate to detailed English prompt."}, {"role":"user", "content":prompt}]
-            ).choices[0].message.content
-            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(translation)}?width=1024&height=1024&seed={random.randint(1,99999)}"
+            trans = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system","content":"Translate to detailed English prompt."},{"role":"user","content":prompt}]).choices[0].message.content
+            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(trans)}?width=1024&height=1024&seed={random.randint(1,99999)}"
             st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
+            
+        elif mode == "👁️ تحلیل عکس":
+             st.warning("لطفاً از پنلِ اختصاصی تحلیلِ عکس استفاده کنید.")
+             
         else:
-            # مدل استفاده شده در اینجا همان selected_model است که در سایدبار انتخاب کردی
-            sys = f"You are using model {selected_model}. تو دستیار سارایی. برای دستور کاری بگو چشم بانو." if bot_mode=="SR BOT" else f"You are {selected_model}. کوتاه پاسخ بده."
-            res = groq_client.chat.completions.create(
-                model=selected_model, 
-                messages=[{"role":"system", "content":sys}]+current_messages
-            ).choices[0].message.content
+            sys = f"You are {selected_model}. تو دستیار سارایی. برای دستور کاری بگو چشم بانو." if bot_mode=="SR BOT" else f"You are {selected_model}."
+            
+            # تشخیص اینکه مدل متعلق به کدام کلاینت است
+            if ":" in selected_model: # مدل‌های OpenRouter معمولاً شامل ":" هستند
+                res = or_client.chat.completions.create(model=selected_model, messages=[{"role":"system","content":sys}]+current_messages).choices[0].message.content
+            else:
+                res = groq_client.chat.completions.create(model=selected_model, messages=[{"role":"system","content":sys}]+current_messages).choices[0].message.content
+            
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
     st.rerun()
