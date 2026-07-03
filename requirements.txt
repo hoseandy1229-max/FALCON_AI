@@ -2,4 +2,4 @@ openai
 urllib3
 streamlit
 groq
-Pillow
+streamlit-cookies-manager
