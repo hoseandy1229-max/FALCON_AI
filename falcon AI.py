@@ -8,10 +8,16 @@ import base64
 # تنظیمات صفحه
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
+# استایل سبز نئونی (کادر و حباب پیام‌ها)
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    [data-testid="stChatMessage"] { border: 1px solid #39FF14 !important; }
+    [data-testid="stChatMessage"] { 
+        border: 2px solid #39FF14 !important; 
+        background-color: #1a1d23 !important;
+        border-radius: 15px !important;
+        padding: 10px !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -19,7 +25,6 @@ st.markdown("""
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
-# مدیریت وضعیت
 if "auth" not in st.session_state: st.session_state.auth = False
 
 # --- سایدبار ---
@@ -38,76 +43,54 @@ with st.sidebar:
         "meta-llama/llama-3.2-11b-vision-instruct"
     ])
 
-# مدیریتِ ورود به SR BOT
+# منطق ورود به SR BOT
 if bot_mode == "SR BOT" and not st.session_state.auth:
     pwd = st.text_input("رمز SR BOT:", type="password")
     if st.button("ورود"):
-        if pwd == "1234": st.session_state.auth = True; st.rerun()
+        if pwd == "1234": 
+            st.session_state.auth = True
+            st.session_state.messages = [{"role": "assistant", "content": "سلام سارا جون."}]
+            st.rerun()
         else: st.error("رمز اشتباه است!")
-    st.stop() # توقف برنامه تا زمانی که رمز درست وارد نشود
+    st.stop() # برنامه در اینجا متوقف می‌شود تا رمز وارد شود
 
-# --- منطقِ برنامه (بعد از تایید رمز) ---
 st.title("𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰")
-
-# اگر در بخش SR BOT هستیم، پیامِ خوش‌آمدگویی و لحنِ خاص
-if bot_mode == "SR BOT":
-    if len(st.session_state.messages) == 0:
-        st.write("سلام بانو.")
-        st.session_state.messages.append({"role": "assistant", "content": "سلام بانو."})
 
 mode = st.radio("حالتِ کاری:", ["💬 چت عادی", "🎨 تولید تصویر", "👁️ تحلیل عکس"], horizontal=True)
 
 if "messages" not in st.session_state: st.session_state.messages = []
 
-# نمایش پیام‌ها
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-# --- بخش تحلیل عکس ---
-if mode == "👁️ تحلیل عکس":
-    uploaded_file = st.file_uploader("عکس را آپلود کن:", type=['jpg', 'png', 'jpeg'])
-    image_prompt = st.text_input("سوالت درباره این عکس چیه؟")
-    if uploaded_file and image_prompt:
-        bytes_data = uploaded_file.read()
-        base64_img = base64.b64encode(bytes_data).decode('utf-8')
-        with st.chat_message("assistant"):
-            try:
-                response = or_client.chat.completions.create(
-                    model=model_choice,
-                    messages=[{"role": "user", "content": [{"type": "text", "text": image_prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}]}],
-                    max_tokens=500
-                )
-                res = response.choices[0].message.content.replace('assistant<|end_header_id|>', '')
-                # اگر در حالتِ SR BOT هستیم، پایانِ هر پاسخ "چشم بانو" اضافه شود
-                if bot_mode == "SR BOT": res += "\n\nچشم بانو."
-                st.markdown(f"**پاسخ ({model_choice.split('/')[0]}):**\n\n{res}")
-                st.session_state.messages.append({"role": "assistant", "content": res})
-            except: st.error("خطا.")
+# --- پردازش پاسخ‌ها ---
+def get_ai_response(prompt_text):
+    # اگر در حالت SR BOT است، لحنِ مطیع و اضافه کردنِ "چشم بانو" فقط در پاسخ‌های کاری
+    system_msg = "You are a helpful assistant."
+    if bot_mode == "SR BOT":
+        system_msg = "تو یک دستیارِ مطیع هستی. اگر کاربر دستور کاری داد، پاسخ بده و در انتها حتما بگو: چشم بانو. اگر سوال معمولی بود، عادی پاسخ بده."
+    
+    res = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "system", "content": system_msg}, {"role": "user", "content": prompt_text}]
+    ).choices[0].message.content
+    return res
 
-# --- بخش چت و تولید تصویر ---
-if prompt := st.chat_input("پیام یا دستور خود را بنویسید..."):
+# --- بخش چت ---
+if prompt := st.chat_input("پیام خود را بنویسید..."):
     if mode != "👁️ تحلیل عکس":
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
     
     with st.chat_message("assistant"):
-        if mode == "🎨 تولید تصویر":
-            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(f'Real photo of {prompt}, 8k')}?width=1024&height=1024&seed={random.randint(1, 999999)}"
+        if mode == "💬 چت عادی":
+            res = get_ai_response(prompt)
+            st.markdown(res)
+            st.session_state.messages.append({"role": "assistant", "content": res})
+        elif mode == "🎨 تولید تصویر":
+            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?width=1024&height=1024&seed={random.randint(1,999999)}"
             st.image(url)
             st.session_state.messages.append({"role": "assistant", "content": url, "type": "image_gen"})
-        elif mode == "💬 چت عادی":
-            try:
-                # اگر در حالت SR BOT هستیم، سیستم پرامپت را تغییر بده
-                system_prompt = "کوتاه و فارسی پاسخ بده"
-                if bot_mode == "SR BOT": system_prompt = "با لحنِ مطیع پاسخ بده و همیشه در انتها بگو چشم بانو."
-                
-                res = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "system", "content": system_prompt}] + st.session_state.messages
-                ).choices[0].message.content
-                st.markdown(res)
-                st.session_state.messages.append({"role": "assistant", "content": res})
-            except: st.error("خطا.")
     if mode != "👁️ تحلیل عکس": st.rerun()
