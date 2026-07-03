@@ -37,7 +37,7 @@ with st.sidebar:
         st.rerun()
 
 if bot_mode == "SR BOT" and not st.session_state.auth_sr:
-    pwd = st.text_input("𝑺𝑹 𝑩𝑶𝑻:", type="password")
+    pwd = st.text_input("رمز سارا:", type="password")
     if st.button("تایید ورود"):
         if pwd == "sara":
             st.session_state.auth_sr = True
@@ -61,7 +61,6 @@ if mode == "👁️ تحلیل عکس":
     if uploaded_file and st.button("تحلیل"):
         with st.spinner("در حال اتصال به سرور..."):
             b64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
-            # لیست مدل‌های اولویت‌دار
             vision_models = ["google/gemini-2.0-flash-exp", "meta-llama/llama-3.2-11b-vision-instruct"]
             success = False
             
@@ -69,24 +68,19 @@ if mode == "👁️ تحلیل عکس":
                 try:
                     res = or_client.chat.completions.create(
                         model=model_id,
-                        messages=[{
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": img_prompt},
-                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
-                            ]
-                        }]
+                        messages=[{"role": "user", "content": [{"type": "text", "text": img_prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}],
+                        temperature=0.3
                     )
                     content = res.choices[0].message.content
                     st.markdown(f"**پاسخ ({model_id.split('/')[0]}):**\n{content}")
                     current_messages.append({"role": "assistant", "content": content})
                     success = True
-                    break # اگر موفق شد، حلقه تمام
+                    break 
                 except:
-                    continue # اگر مدل اول نشد، برو بعدی
+                    continue 
             
             if not success:
-                st.error("ارتباط با تمام مدل‌های تحلیل برقرار نشد. لطفاً اکانت OpenRouter خود را چک کنید.")
+                st.error("ارتباط با تمام مدل‌های تحلیل برقرار نشد.")
 
 elif prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
@@ -98,9 +92,15 @@ elif prompt := st.chat_input("پیام..."):
             st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            sys = "دستیار سارا." if bot_mode=="SR BOT" else "پاسخ کوتاه."
+            sys_content = "تو دستیار سارا هستی. پاسخ‌هایت باید دقیق، منطقی، کوتاه و کاملاً مرتبط با متن سارا باشد. از تکرار، خیال‌پردازی و حرف‌های اضافه جداً خودداری کن." if bot_mode=="SR BOT" else "پاسخ‌ها باید مستقیم، کوتاه و دقیق باشند."
             client = or_client if "/" in selected_model else groq_client
-            res = client.chat.completions.create(model=selected_model, messages=[{"role":"system","content":sys}]+current_messages).choices[0].message.content
+            
+            res = client.chat.completions.create(
+                model=selected_model, 
+                messages=[{"role":"system","content":sys_content}]+current_messages,
+                temperature=0.3
+            ).choices[0].message.content
+            
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
     st.rerun()
