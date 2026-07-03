@@ -31,23 +31,22 @@ for msg in st.session_state.messages:
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-# --- بخش تحلیل عکس با لیستِ بسیار کاملِ مدل‌ها ---
+# --- بخش تحلیل عکس با کادر سوال ---
 if mode == "👁️ تحلیل عکس":
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=['jpg', 'png', 'jpeg'])
-    if uploaded_file:
+    image_prompt = st.text_input("سوالت درباره این عکس چیه؟")
+    
+    if uploaded_file and image_prompt:
         bytes_data = uploaded_file.read()
         base64_img = base64.b64encode(bytes_data).decode('utf-8')
         
         with st.chat_message("assistant"):
-            with st.spinner("در حال جستجوی سرور آزاد (لطفاً کمی صبر کنید)..."):
-                # لیستِ کامل و متنوع مدل‌ها برای عبور از ترافیک
+            with st.spinner("در حال تحلیل با هوش مصنوعی..."):
                 model_list = [
                     "mistralai/pixtral-12b:free",
                     "google/gemini-2.0-flash-lite-preview-02-05:free",
-                    "google/gemini-2.0-flash-exp:free",
-                    "qwen/qwen-2.5-vl-72b-instruct:free",
                     "meta-llama/llama-3.2-11b-vision-instruct",
-                    "nousresearch/hermes-3-llama-3.1-8b" 
+                    "qwen/qwen-2.5-vl-72b-instruct:free"
                 ]
                 
                 success = False
@@ -58,28 +57,30 @@ if mode == "👁️ تحلیل عکس":
                             messages=[{
                                 "role": "user",
                                 "content": [
-                                    {"type": "text", "text": "این تصویر را دقیق و به فارسی تحلیل کن."},
+                                    {"type": "text", "text": image_prompt},
                                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
                                 ]
                             }],
-                            max_tokens=400
+                            max_tokens=500
                         )
                         res = response.choices[0].message.content
-                        st.markdown(f"**تحلیل مدل ({model_name.split('/')[0]}):**\n\n{res}")
-                        st.session_state.messages.append({"role": "assistant", "content": res})
+                        clean_res = res.replace('assistant<|end_header_id|>', '')
+                        st.markdown(f"**پاسخ ({model_name.split('/')[0]}):**\n\n{clean_res}")
+                        st.session_state.messages.append({"role": "assistant", "content": clean_res})
                         success = True
                         break 
-                    except Exception:
+                    except:
                         continue 
                 
                 if not success:
-                    st.error("❌ تمامی مدل‌های رایگان در حال حاضر به شدت شلوغ هستند.")
-                    st.info("سرویس‌های رایگان OpenRouter در ساعات پرمصرف محدودیت دارند. لطفاً چند دقیقه دیگر مجدداً تلاش کنید.")
+                    st.error("❌ فعلاً تمام سرورها شلوغ هستند. دوباره امتحان کن.")
 
 # --- بخش چت و تولید تصویر ---
 if prompt := st.chat_input("پیام یا دستور خود را بنویسید..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
+    # اگر در حالت چت هستیم، پیام را نمایش بده
+    if mode != "👁️ تحلیل عکس":
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"): st.markdown(prompt)
     
     with st.chat_message("assistant"):
         if mode == "🎨 تولید تصویر":
@@ -88,7 +89,7 @@ if prompt := st.chat_input("پیام یا دستور خود را بنویسید.
             url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(final_p)}?width=1024&height=1024&seed={seed}"
             st.image(url, caption="تصویر تولید شده")
             st.session_state.messages.append({"role": "assistant", "content": url, "type": "image_gen"})
-        else:
+        elif mode == "💬 چت عادی":
             try:
                 res = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
@@ -97,5 +98,8 @@ if prompt := st.chat_input("پیام یا دستور خود را بنویسید.
                 st.markdown(res)
                 st.session_state.messages.append({"role": "assistant", "content": res})
             except Exception as e:
-                st.error("خطا در پاسخگویی سرور متن. لطفاً دوباره تلاش کنید.")
-    st.rerun()
+                st.error("خطا در پاسخگویی سرور.")
+    
+    # برای جلوگیری از تکرار در تحلیل عکس هنگام ارسال چت
+    if mode != "👁️ تحلیل عکس":
+        st.rerun()
