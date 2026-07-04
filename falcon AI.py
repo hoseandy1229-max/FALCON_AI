@@ -9,7 +9,6 @@ import os
 from datetime import datetime
 from streamlit_cookies_manager import EncryptedCookieManager
 from tavily import TavilyClient
-import pyperclip
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", password="some_secret_password")
@@ -46,9 +45,9 @@ PERSONAS = {
 }
 
 PERSONA_EMOJIS = {
-    "دستیار (منظم)": "", "دانا (دانشمند)": "", "سارا (دوست‌داشتنی)": "",
-    "استاد (سخت‌گیر)": "", "شوخ (طناز)": "", "فیلسوف (متفکر)": "",
-    "نویسنده (خلاق)": "", "کدنویس (منطقی)": "", "مربی (انگیزشی)": ""
+    "دستیار (منظم)": "🤖", "دانا (دانشمند)": "🧬", "سارا (دوست‌داشتنی)": "🌸",
+    "استاد (سخت‌گیر)": "🎓", "شوخ (طناز)": "🤡", "فیلسوف (متفکر)": "🧠",
+    "نویسنده (خلاق)": "✍️", "کدنویس (منطقی)": "💻", "مربی (انگیزشی)": "🔥"
 }
 
 # مدل‌های تحلیل تصویر
@@ -164,7 +163,8 @@ if mode == "👁️ تحلیل عکس":
 
 # نمایش پیام‌ها
 for i, msg in enumerate(current_messages):
-    with st.chat_message(msg["role"], avatar=PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None):
+    av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
+    with st.chat_message(msg["role"], avatar=av):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
