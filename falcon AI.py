@@ -11,7 +11,7 @@ from streamlit_cookies_manager import EncryptedCookieManager
 from tavily import TavilyClient
 
 # مدیریت کوکی
-cookies = EncryptedCookieManager(prefix="falcon_ai", password="some_secret_password")
+cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", password="some_secret_password")
 if not cookies.ready(): st.stop()
 
 if not os.path.exists("history"): os.makedirs("history")
@@ -80,7 +80,7 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
 if "username" not in st.session_state:
     if "username" in cookies: st.session_state.username = cookies["username"]
     else:
-        st.title("ورود به Falcon AI")
+        st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
         user_input = st.text_input("نام کاربری:")
         if st.button("تایید"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
@@ -101,25 +101,25 @@ if not os.path.exists(user_dir): os.makedirs(user_dir)
 # سایدبار
 with st.sidebar:
     st.write(f"کاربر: {st.session_state.username}")
-    new_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"], index=0 if st.session_state.bot_mode=="FALCON AI" else 1)
+    new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0 if st.session_state.bot_mode=="𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰" else 1)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"])
     
-    st.subheader("تاریخچه")
+    st.subheader("تاریخچه گفت و گو")
     for f in [f for f in os.listdir(user_dir) if f.endswith(".json")]:
         if st.button(f):
             with open(os.path.join(user_dir, f), 'r') as file:
                 data = json.load(file)
-                if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = data
+                if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = data
                 else: st.session_state.messages_falcon = data
             st.rerun()
-    if st.button("شروع جدید"):
-        if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = []
+    if st.button("گفت و گو جدید"):
+        if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
         st.rerun()
     # پنل ادمین
-    with st.expander("🔐 پنل ادمین"):
+    with st.expander(" 🔒 پنل مالکیت"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
             sel_u = st.selectbox("کاربر:", os.listdir("history/"))
@@ -131,9 +131,9 @@ with st.sidebar:
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
-if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
-    st.title("ورود به بخش سارا")
-    pwd = st.text_input("رمز سارا:", type="password")
+if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state.auth_sr:
+    st.title("ورودی بخش خصوصی")
+    pwd = st.text_input("رمز عبور:", type="password")
     if st.button("تایید رمز"):
         if pwd == "sara": st.session_state.auth_sr = True; st.rerun()
         else: st.error("رمز اشتباه است!")
@@ -159,7 +159,7 @@ for msg in current_messages:
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-if prompt := st.chat_input("پیام..."):
+if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
