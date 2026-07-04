@@ -13,7 +13,11 @@ import PyPDF2
 cookies = EncryptedCookieManager(prefix="falcon_ai", password="some_secret_password")
 if not cookies.ready(): st.stop()
 
-if not os.path.exists("history"): os.makedirs("history")
+# تنظیم دایرکتوری‌ها
+base_dir = os.path.dirname(os.path.abspath(__file__))
+history_dir = os.path.join(base_dir, "history")
+if not os.path.exists(history_dir): os.makedirs(history_dir)
+
 st.set_page_config(page_title="Falcon AI", layout="wide")
 
 # استایل‌ها
@@ -22,7 +26,6 @@ st.markdown("""
     .stApp { background-color: #0e1117; color: white; }
     h1 { text-align: center !important; }
     div[data-testid="stRadio"] > div { display: flex !important; flex-direction: row !important; justify-content: center !important; gap: 10px !important; }
-    div[data-testid="stRadio"] label { font-size: 14px !important; padding: 5px !important; }
     [data-testid="stChatMessage"] { border: 2px solid #39FF14 !important; background-color: #1a1d23 !important; border-radius: 15px !important; padding: 10px !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -36,7 +39,6 @@ persona_prompts = {
     "فیلسوف": "تو یک فیلسوف هستی که به مسائل از دیدگاهی عمیق، منطقی و گاهی انتزاعی نگاه می‌کنی."
 }
 
-# توابع کمکی
 def extract_file_text(uploaded_file):
     text = ""
     try:
@@ -48,11 +50,9 @@ def extract_file_text(uploaded_file):
     except: text = "خطا در خواندن فایل"
     return text
 
-# مدل‌های تحلیل تصویر
 vision_model_options = {
-    "اتوماتیک": "auto", "Gemma 4": "google/gemma-4-31b-it", "Nemotron": "nvidia/nemotron-3-nano-omni",
-    "Gemini Flash": "google/gemini-2.5-flash", "Llama 3.2 Vision": "meta-llama/llama-3.2-11b-vision-instruct",
-    "Qwen VL": "qwen/qwen-2-vl-72b-instruct", "Pixtral": "mistralai/pixtral-12b"
+    "اتوماتیک": "auto", "Gemma 4": "google/gemma-4-31b-it", "Gemini Flash": "google/gemini-2.5-flash",
+    "Llama 3.2 Vision": "meta-llama/llama-3.2-11b-vision-instruct"
 }
 
 def analyze_image(uploaded_file, user_prompt, model_to_use):
@@ -82,13 +82,28 @@ if "username" not in st.session_state:
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
-if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
-if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
+user_path = os.path.join(history_dir, st.session_state.username)
+if not os.path.exists(user_path): os.makedirs(user_path)
+
+if "messages_falcon" not in st.session_state: 
+    st.session_state.messages_falcon = []
+    fpath = os.path.join(user_path, "chat_falcon.json")
+    if os.path.exists(fpath):
+        with open(fpath, 'r') as f: st.session_state.messages_falcon = json.load(f)
+
+if "messages_sr" not in st.session_state: 
+    st.session_state.messages_sr = []
+    fpath = os.path.join(user_path, "chat_sr.json")
+    if os.path.exists(fpath):
+        with open(fpath, 'r') as f: st.session_state.messages_sr = json.load(f)
+
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 if "bot_mode" not in st.session_state: st.session_state.bot_mode = "FALCON AI"
 
-user_dir = f"history/{st.session_state.username}"
-if not os.path.exists(user_dir): os.makedirs(user_dir)
+def save_current_chat():
+    fpath = os.path.join(user_path, f"chat_{'sr' if st.session_state.bot_mode == 'SR BOT' else 'falcon'}.json")
+    with open(fpath, 'w') as f:
+        json.dump(st.session_state.messages_sr if st.session_state.bot_mode == "SR BOT" else st.session_state.messages_falcon, f)
 
 # سایدبار
 with st.sidebar:
@@ -96,30 +111,13 @@ with st.sidebar:
     selected_persona = st.selectbox("شخصیت:", list(persona_prompts.keys()))
     new_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"], index=0 if st.session_state.bot_mode=="FALCON AI" else 1)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.rerun()
-    selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"])
+    selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b"])
     
-    st.subheader("تاریخچه")
-    for f in [f for f in os.listdir(user_dir) if f.endswith(".json")]:
-        if st.button(f):
-            with open(os.path.join(user_dir, f), 'r') as file:
-                data = json.load(file)
-                if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = data
-                else: st.session_state.messages_falcon = data
-            st.rerun()
     if st.button("شروع جدید"):
         if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
+        save_current_chat()
         st.rerun()
-    with st.expander("🔐 پنل ادمین"):
-        admin_pwd = st.text_input("رمز:", type="password")
-        if admin_pwd == "admin123":
-            sel_u = st.selectbox("کاربر:", os.listdir("history/"))
-            if sel_u:
-                sel_f = st.selectbox("چت:", os.listdir(f"history/{sel_u}"))
-                if sel_f and st.button("مشاهده"):
-                    with open(f"history/{sel_u}/{sel_f}", 'r') as file:
-                        for msg in json.load(file): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
-        elif admin_pwd: st.error("رمز غلط")
 
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "SR BOT" else st.session_state.messages_falcon
 
@@ -141,15 +139,10 @@ elif mode == "📁 تحلیل فایل":
     uploaded_file = st.file_uploader("فایل را آپلود کن:", type=["pdf", "txt"])
     if uploaded_file: file_text = extract_file_text(uploaded_file)
 
-for i, msg in enumerate(current_messages):
+for msg in current_messages:
     with st.chat_message(msg["role"]):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
-        if msg["role"] == "assistant" and msg.get("type") != "image_gen":
-            if st.button("🔊 پخش صدا", key=f"audio_{i}"):
-                with st.spinner("در حال آماده‌سازی صوت..."):
-                    audio_url = f"https://text-to-speech.pollinations.ai/Speak?text={urllib.parse.quote(msg['content'])}&voice=female"
-                    st.audio(audio_url)
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
@@ -176,6 +169,5 @@ if prompt := st.chat_input("پیام..."):
             st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
             
-    fname = f"{st.session_state.bot_mode}_{st.session_state.username}.json"
-    with open(os.path.join(user_dir, fname), 'w') as file: json.dump(current_messages, file)
+    save_current_chat()
     st.rerun()
