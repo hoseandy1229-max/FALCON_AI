@@ -9,7 +9,6 @@ import os
 from datetime import datetime
 from streamlit_cookies_manager import EncryptedCookieManager
 from tavily import TavilyClient
-import streamlit.components.v1 as components
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", password="some_secret_password")
@@ -67,7 +66,9 @@ def get_long_term_memory(user_dir, n=3):
     return memory[-10:]
 
 def search_web(query):
-    return tavily.search(query=query, search_depth="advanced")["results"]
+    if not query or query.strip() == "": return []
+    try: return tavily.search(query=query, search_depth="advanced")["results"]
+    except: return []
 
 def analyze_image(uploaded_file, user_prompt, model_to_use):
     bytes_data = uploaded_file.getvalue()
@@ -148,7 +149,7 @@ if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state
 
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" else st.session_state.messages_falcon
 
-st.title(f"{st.session_state.bot_mode} - {st.session_state.persona}")
+st.title(f"{st.session_state.bot_mode} - {PERSONA_EMOJIS.get(st.session_state.persona)} {st.session_state.persona}")
 with st.container():
     st.markdown("<h3 style='text-align: center;'>حالت کاری:</h3>", unsafe_allow_html=True)
     mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی"], index=2, horizontal=True, label_visibility="collapsed")
@@ -166,14 +167,14 @@ for i, msg in enumerate(current_messages):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
         
-        if msg["role"] == "assistant":
-            c1, c2, c3 = st.columns([0.05, 0.05, 0.9])
-            with c1: 
-                if st.button("📋", key=f"copy_{i}"): st.write(f"کپی شد")
-            with c2: 
-                if st.button("👍", key=f"like_{i}"): st.session_state.user_pref += f" [لایک: {msg['content'][:20]}]"; st.rerun()
-            with c3: 
-                if st.button("👎", key=f"dislike_{i}"): st.session_state.user_pref += f" [دیس: {msg['content'][:20]}]"; st.rerun()
+        if msg["role"] == "assistant" and msg.get("type") != "image_gen":
+            col_a, col_b, col_c, col_d = st.columns([0.1, 0.1, 0.1, 0.7])
+            with col_a: 
+                if st.button("📋", key=f"copy_{i}"): st.toast("کپی شد")
+            with col_b: 
+                if st.button("👍", key=f"like_{i}"): st.session_state.user_pref += f" [لایک: {msg['content'][:15]}]"; st.rerun()
+            with col_c: 
+                if st.button("👎", key=f"dislike_{i}"): st.session_state.user_pref += f" [دیس: {msg['content'][:15]}]"; st.rerun()
 
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     current_messages.append({"role": "user", "content": prompt})
@@ -200,7 +201,7 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 memory_str = str(memory)[:500] 
                 search_str = str(search_results)[:500]
                 
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. ترجیحات: {st.session_state.user_pref}. حافظه: {memory_str}. جستجو: {search_str}. پاسخ فارسی."
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. ترجیحات: {st.session_state.user_pref}. حافظه: {memory_str}. جستجو: {search_str}. پاسخ فارسی بده."
                 
                 res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
                     model=selected_model, 
