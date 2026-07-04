@@ -1,3 +1,4 @@
+
 import streamlit as st
 from groq import Groq
 from openai import OpenAI
@@ -29,6 +30,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# سیستم شخصیت‌ها
+persona_prompts = {
+    "دستیار هوشمند": "تو یک دستیار همه فن حریف، دقیق و بسیار مودب هستی.",
+    "برنامه‌نویس ارشد": "تو یک متخصص ارشد برنامه‌نویسی هستی که کدهای بهینه، تمیز و همراه با توضیح می‌نویسی.",
+    "نویسنده خلاق": "تو یک نویسنده خوش‌ذوق هستی که با لحن ادبی و جذاب پاسخ می‌دهی.",
+    "مربی انگیزشی": "تو یک مربی هستی که با انرژی بالا و جملات انگیزشی کاربر را راهنمایی می‌کنی.",
+    "فیلسوف": "تو یک فیلسوف هستی که به مسائل از دیدگاهی عمیق، منطقی و گاهی انتزاعی نگاه می‌کنی."
+}
+
 # توابع کمکی
 def text_to_speech(text):
     try:
@@ -49,13 +59,6 @@ def extract_file_text(uploaded_file):
             text = uploaded_file.getvalue().decode("utf-8")
     except: text = "خطا در خواندن فایل"
     return text
-
-# سیستم شخصیت
-persona_prompts = {
-    "دستیار عادی": "تو یک دستیار هوشمند و مودب هستی.",
-    "برنامه‌نویس": "تو یک متخصص ارشد برنامه‌نویسی هستی که کدهای بهینه می‌نویسی.",
-    "نویسنده": "تو یک نویسنده خلاق با لحن ادبی هستی."
-}
 
 # مدل‌های تحلیل تصویر
 vision_model_options = {
@@ -87,6 +90,7 @@ if "username" not in st.session_state:
         if st.button("تایید"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
 
+# تنظیمات اصلی
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
@@ -154,7 +158,7 @@ for i, msg in enumerate(current_messages):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
-            if st.button("🔊 پخش", key=f"audio_{i}_{len(current_messages)}"):
+            if st.button("🔊 پخش", key=f"audio_{i}"):
                 a_data = text_to_speech(msg["content"])
                 if a_data: st.audio(a_data, format="audio/mp3")
 
