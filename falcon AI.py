@@ -8,6 +8,7 @@ import json
 import os
 from datetime import datetime
 from streamlit_cookies_manager import EncryptedCookieManager
+from tavily import TavilyClient
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="falcon_ai", password="some_secret_password")
@@ -15,6 +16,9 @@ if not cookies.ready(): st.stop()
 
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide")
+
+# کلاینت Tavily
+tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
 
 # استایل‌ها
 st.markdown("""
@@ -46,6 +50,17 @@ vision_model_options = {
     "Gemini Flash": "google/gemini-2.5-flash", "Llama 3.2 Vision": "meta-llama/llama-3.2-11b-vision-instruct",
     "Qwen VL": "qwen/qwen-2-vl-72b-instruct", "Pixtral": "mistralai/pixtral-12b"
 }
+
+def get_long_term_memory(user_dir, n=3):
+    memory = []
+    files = sorted([f for f in os.listdir(user_dir) if f.endswith(".json")], reverse=True)
+    for f in files[:n]:
+        with open(os.path.join(user_dir, f), 'r', encoding='utf-8') as file:
+            memory.extend(json.load(file))
+    return memory[-10:]
+
+def search_web(query):
+    return tavily.search(query=query, search_depth="advanced")["results"]
 
 def analyze_image(uploaded_file, user_prompt, model_to_use):
     bytes_data = uploaded_file.getvalue()
@@ -162,8 +177,10 @@ if prompt := st.chat_input("پیام..."):
                 status.update(label="تصویر با موفقیت ساخته شد!", state="complete", expanded=False)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
         else:
-            with st.status("در حال دریافت پاسخ...", expanded=True) as status:
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. پاسخ‌ها را فارسی بده."
+            with st.status("در حال بررسی حافظه و جستجوی وب...", expanded=True) as status:
+                memory = get_long_term_memory(user_dir)
+                search_results = search_web(prompt)
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه قبلی: {memory}. نتایج جستجو: {search_results}. پاسخ‌ها را فارسی بده."
                 res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
                     model=selected_model, messages=[{"role":"system","content":sys_prompt}] + current_messages[-5:], temperature=0.2
                 ).choices[0].message.content
