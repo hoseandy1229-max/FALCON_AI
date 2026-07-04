@@ -1,4 +1,4 @@
-Import streamlit as st
+import streamlit as st
 from groq import Groq
 from openai import OpenAI
 import urllib.parse
@@ -42,6 +42,12 @@ PERSONAS = {
     "نویسنده (خلاق)": "تو با ادبیاتی شاعرانه و خلاقانه پاسخ می‌دهی.",
     "کدنویس (منطقی)": "تو تمرکزت روی منطق و حل مسئله است و پاسخ‌های ساختاریافته می‌دهی.",
     "مربی (انگیزشی)": "تو پاسخ‌هایت پر از انرژی و انگیزه‌بخشی است."
+}
+
+PERSONA_EMOJIS = {
+    "دستیار (منظم)": "📋", "دانا (دانشمند)": "🔬", "سارا (دوست‌داشتنی)": "💖",
+    "استاد (سخت‌گیر)": "🎓", "شوخ (طناز)": "🤡", "فیلسوف (متفکر)": "🤔",
+    "نویسنده (خلاق)": "✍️", "کدنویس (منطقی)": "💻", "مربی (انگیزشی)": "🚀"
 }
 
 # مدل‌های تحلیل تصویر
@@ -152,15 +158,21 @@ if mode == "👁️ تحلیل عکس":
     model_key = vision_model_options[model_name]
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
 
-for msg in current_messages:
-    with st.chat_message(msg["role"]):
+for i, msg in enumerate(current_messages):
+    with st.chat_message(msg["role"], avatar=PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
+        
+        if msg["role"] == "assistant":
+            c1, c2, c3 = st.columns([0.1, 0.1, 0.8])
+            with c1: st.button("📋", key=f"copy_{i}")
+            with c2: st.button("👍", key=f"like_{i}")
+            with c3: st.button("👎", key=f"dislike_{i}")
 
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
         if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
             with st.status("در حال تجزیه و تحلیل اطلاعات...", expanded=True) as status:
                 res = analyze_image(uploaded_file, prompt, model_key)
@@ -179,7 +191,6 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 memory = get_long_term_memory(user_dir)
                 search_results = search_web(prompt)
                 
-                # فشرده‌سازی برای جلوگیری از خطا
                 memory_str = str(memory)[:500] 
                 search_str = str(search_results)[:500]
                 
