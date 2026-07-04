@@ -91,7 +91,7 @@ with st.sidebar:
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"])
     
-    st.subheader("تاریخچه")
+    st.subheader("تاریخچه چت ها")
     for f in [f for f in os.listdir(user_dir) if f.endswith(".json")]:
         if st.button(f):
             with open(os.path.join(user_dir, f), 'r') as file:
@@ -99,12 +99,12 @@ with st.sidebar:
                 if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = data
                 else: st.session_state.messages_falcon = data
             st.rerun()
-    if st.button("شروع جدید"):
+    if st.button("گفت و گو جدید"):
         if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
         st.rerun()
     # پنل ادمین
-    with st.expander("🔐 پنل ادمین"):
+    with st.expander("🔐 پنل مالک"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
             sel_u = st.selectbox("کاربر:", os.listdir("history/"))
@@ -117,8 +117,8 @@ with st.sidebar:
 
 # رمز SR BOT
 if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
-    st.title("ورود به بخش سارا")
-    pwd = st.text_input("رمز سارا:", type="password")
+    st.title("بخش خصوصی SR BOT")
+    pwd = st.text_input("رمز:", type="password")
     if st.button("تایید رمز"):
         if pwd == "sara": st.session_state.auth_sr = True; st.rerun()
         else: st.error("رمز اشتباه است!")
