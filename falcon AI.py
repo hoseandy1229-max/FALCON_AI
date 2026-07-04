@@ -92,7 +92,7 @@ or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["
 if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
-if "bot_mode" not in st.session_state: st.session_state.bot_mode = "FALCON AI"
+if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 
 user_dir = f"history/{st.session_state.username}"
@@ -140,7 +140,7 @@ if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state
     st.stop()
 
 # انتخاب لیست فعال
-current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "SR BOT" else st.session_state.messages_falcon
+current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" else st.session_state.messages_falcon
 
 st.title(f"{st.session_state.bot_mode} - {st.session_state.persona}")
 with st.container():
