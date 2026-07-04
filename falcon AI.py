@@ -1,4 +1,4 @@
-Import streamlit as st
+import streamlit as st
 from groq import Groq
 from openai import OpenAI
 import urllib.parse
