@@ -1,3 +1,4 @@
+pyperclip
 streamlit
 groq
 openai
