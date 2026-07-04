@@ -6,8 +6,10 @@ import random
 import base64
 import json
 import os
-import time
 from streamlit_cookies_manager import EncryptedCookieManager
+from gtts import gTTS
+from io import BytesIO
+import PyPDF2
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="falcon_ai", password="some_secret_password")
@@ -26,6 +28,23 @@ st.markdown("""
     [data-testid="stChatMessage"] { border: 2px solid #39FF14 !important; background-color: #1a1d23 !important; border-radius: 15px !important; padding: 10px !important; }
     </style>
 """, unsafe_allow_html=True)
+
+# توابع کمکی جدید
+def text_to_speech(text):
+    tts = gTTS(text=text, lang='fa')
+    fp = BytesIO()
+    tts.write_to_fp(fp)
+    fp.seek(0)
+    return fp
+
+def extract_file_text(uploaded_file):
+    text = ""
+    if uploaded_file.name.endswith('.pdf'):
+        reader = PyPDF2.PdfReader(uploaded_file)
+        for page in reader.pages: text += page.extract_text() or ""
+    else:
+        text = uploaded_file.getvalue().decode("utf-8")
+    return text
 
 # مدل‌های تحلیل تصویر
 vision_model_options = {
@@ -81,30 +100,18 @@ with st.sidebar:
         if st.button(f):
             with open(os.path.join(user_dir, f), 'r') as file:
                 data = json.load(file)
-                st.session_state.current_file = f
                 if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = data
                 else: st.session_state.messages_falcon = data
             st.rerun()
     if st.button("شروع جدید"):
-        new_fname = f"{st.session_state.bot_mode}_{st.session_state.username}_{int(time.time())}.json"
-        st.session_state.current_file = new_fname
         if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
         st.rerun()
-    
-    with st.expander("🔐 پنل ادمین"):
-        admin_pwd = st.text_input("رمز:", type="password")
-        if admin_pwd == "admin123":
-            sel_u = st.selectbox("کاربر:", os.listdir("history/"))
-            if sel_u:
-                sel_f = st.selectbox("چت:", os.listdir(f"history/{sel_u}"))
-                if sel_f and st.button("مشاهده"):
-                    with open(f"history/{sel_u}/{sel_f}", 'r') as file:
-                        for msg in json.load(file): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
-        elif admin_pwd: st.error("رمز غلط")
 
+# لیست فعال
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "SR BOT" else st.session_state.messages_falcon
 
+# رمز SR BOT
 if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
     pwd = st.text_input("رمز سارا:", type="password")
     if st.button("ورود به سارا"):
@@ -112,49 +119,51 @@ if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
     st.stop()
 
 st.title(st.session_state.bot_mode)
-with st.container():
-    st.markdown("<h3 style='text-align: center;'>حالت کاری:</h3>", unsafe_allow_html=True)
-    mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی"], index=2, horizontal=True, label_visibility="collapsed")
+mode = st.radio("", ["👁️ تحلیل عکس", "📁 تحلیل فایل", "🎨 تولید تصویر", "💬 چت عادی"], index=3, horizontal=True)
 
 model_key = None
 uploaded_file = None
+file_text = ""
+
 if mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
     model_key = vision_model_options[model_name]
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
+elif mode == "📁 تحلیل فایل":
+    uploaded_file = st.file_uploader("فایل را آپلود کن:", type=["pdf", "txt"])
+    if uploaded_file: file_text = extract_file_text(uploaded_file)
 
-for msg in current_messages:
+for i, msg in enumerate(current_messages):
     with st.chat_message(msg["role"]):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
+        if msg["role"] == "assistant" and msg.get("type") != "image_gen":
+            if st.button("🔊 پخش", key=f"audio_{i}"): st.audio(text_to_speech(msg["content"]), format="audio/mp3")
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
+        res = ""
         if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
-            with st.status("در حال تجزیه و تحلیل اطلاعات...", expanded=True) as status:
-                res = analyze_image(uploaded_file, prompt, model_key)
-                st.markdown(res)
-                status.update(label="تحلیل انجام شد!", state="complete", expanded=False)
-            current_messages.append({"role": "assistant", "content": res})
+            res = analyze_image(uploaded_file, prompt, model_key)
+        elif mode == "📁 تحلیل فایل" and file_text:
+            prompt = f"متن فایل تحلیل شده: {file_text[:2000]} \n\n سوال کاربر: {prompt}"
+            res = or_client.chat.completions.create(model=selected_model, messages=[{"role":"user", "content": prompt}]).choices[0].message.content
         elif mode == "🎨 تولید تصویر":
-            with st.status("در حال انجام دستور تولید تصویر...", expanded=True) as status:
-                url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?seed={random.randint(1,9999)}"
-                st.image(url)
-                status.update(label="تصویر با موفقیت ساخته شد!", state="complete", expanded=False)
-            current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
+            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?seed={random.randint(1,9999)}"
+            st.image(url)
+            res = url
+            current_messages.append({"role": "assistant", "content": res, "type": "image_gen"})
         else:
-            with st.status("در حال دریافت پاسخ...", expanded=True) as status:
-                res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
-                    model=selected_model, messages=[{"role":"system","content":"فارسی پاسخ بده"}] + current_messages[-5:], temperature=0.2
-                ).choices[0].message.content
-                st.markdown(res)
-                status.update(label="پاسخ آماده شد!", state="complete", expanded=False)
+            res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
+                model=selected_model, messages=[{"role":"system","content":"فارسی پاسخ بده"}] + current_messages[-5:], temperature=0.2
+            ).choices[0].message.content
+        
+        if mode != "🎨 تولید تصویر":
+            st.markdown(res)
             current_messages.append({"role": "assistant", "content": res})
-    
-    if "current_file" not in st.session_state:
-        st.session_state.current_file = f"{st.session_state.bot_mode}_{st.session_state.username}.json"
-    with open(os.path.join(user_dir, st.session_state.current_file), 'w', encoding='utf-8') as file: 
-        json.dump(current_messages, file, ensure_ascii=False)
+            
+    fname = f"{st.session_state.bot_mode}_{st.session_state.username}.json"
+    with open(os.path.join(user_dir, fname), 'w') as file: json.dump(current_messages, file)
     st.rerun()
