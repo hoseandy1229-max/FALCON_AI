@@ -50,6 +50,13 @@ def extract_file_text(uploaded_file):
     except: text = "خطا در خواندن فایل"
     return text
 
+# سیستم شخصیت
+persona_prompts = {
+    "دستیار عادی": "تو یک دستیار هوشمند و مودب هستی.",
+    "برنامه‌نویس": "تو یک متخصص ارشد برنامه‌نویسی هستی که کدهای بهینه می‌نویسی.",
+    "نویسنده": "تو یک نویسنده خلاق با لحن ادبی هستی."
+}
+
 # مدل‌های تحلیل تصویر
 vision_model_options = {
     "اتوماتیک": "auto", "Gemma 4": "google/gemma-4-31b-it", "Nemotron": "nvidia/nemotron-3-nano-omni",
@@ -80,7 +87,6 @@ if "username" not in st.session_state:
         if st.button("تایید"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
 
-# تنظیمات اصلی
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
@@ -95,6 +101,7 @@ if not os.path.exists(user_dir): os.makedirs(user_dir)
 # سایدبار
 with st.sidebar:
     st.write(f"کاربر: {st.session_state.username}")
+    selected_persona = st.selectbox("شخصیت:", list(persona_prompts.keys()))
     new_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"], index=0 if st.session_state.bot_mode=="FALCON AI" else 1)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.rerun()
     selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"])
@@ -111,7 +118,6 @@ with st.sidebar:
         if st.session_state.bot_mode == "SR BOT": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
         st.rerun()
-    # پنل ادمین
     with st.expander("🔐 پنل ادمین"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
@@ -148,7 +154,7 @@ for i, msg in enumerate(current_messages):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
-            if st.button("🔊 پخش", key=f"audio_{i}"):
+            if st.button("🔊 پخش", key=f"audio_{i}_{len(current_messages)}"):
                 a_data = text_to_speech(msg["content"])
                 if a_data: st.audio(a_data, format="audio/mp3")
 
@@ -157,19 +163,20 @@ if prompt := st.chat_input("پیام..."):
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
         res = ""
+        sys_p = {"role": "system", "content": persona_prompts[selected_persona]}
         if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
             res = analyze_image(uploaded_file, prompt, model_key)
         elif mode == "📁 تحلیل فایل" and file_text:
-            prompt = f"متن فایل تحلیل شده: {file_text[:2000]} \n\n سوال کاربر: {prompt}"
-            res = or_client.chat.completions.create(model=selected_model, messages=[{"role":"user", "content": prompt}]).choices[0].message.content
+            prompt = f"متن فایل: {file_text[:2000]} \n\n سوال: {prompt}"
+            res = or_client.chat.completions.create(model=selected_model, messages=[sys_p, {"role":"user", "content": prompt}]).choices[0].message.content
         elif mode == "🎨 تولید تصویر":
             url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?seed={random.randint(1,9999)}"
             st.image(url)
-            res, is_img = url, True
+            res = url
             current_messages.append({"role": "assistant", "content": res, "type": "image_gen"})
         else:
             res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
-                model=selected_model, messages=[{"role":"system","content":"فارسی پاسخ بده"}] + current_messages[-5:], temperature=0.2
+                model=selected_model, messages=[sys_p] + current_messages[-5:], temperature=0.2
             ).choices[0].message.content
         
         if mode != "🎨 تولید تصویر":
