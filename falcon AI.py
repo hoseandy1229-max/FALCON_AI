@@ -6,7 +6,6 @@ import random
 import base64
 import json
 import os
-import streamlit.components.v1 as components
 from streamlit_cookies_manager import EncryptedCookieManager
 import PyPDF2
 
@@ -148,15 +147,9 @@ for i, msg in enumerate(current_messages):
         else: st.markdown(msg["content"])
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
             if st.button("🔊 پخش صدا", key=f"audio_{i}"):
-                text_clean = msg['content'].replace('"', '').replace('\n', ' ')
-                js_code = f"""
-                <script>
-                    var msg = new SpeechSynthesisUtterance("{text_clean}");
-                    msg.lang = 'fa-IR';
-                    window.speechSynthesis.speak(msg);
-                </script>
-                """
-                components.html(js_code, height=0)
+                with st.spinner("در حال آماده‌سازی صوت..."):
+                    audio_url = f"https://text-to-speech.pollinations.ai/Speak?text={urllib.parse.quote(msg['content'])}&voice=female"
+                    st.audio(audio_url)
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
