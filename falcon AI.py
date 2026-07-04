@@ -92,7 +92,7 @@ or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["
 if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
-if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"
+if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰"
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 
 user_dir = f"history/{st.session_state.username}"
@@ -118,7 +118,6 @@ with st.sidebar:
         if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
         else: st.session_state.messages_falcon = []
         st.rerun()
-    # پنل ادمین
     with st.expander(" 🔒 پنل مالکیت"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
@@ -139,7 +138,7 @@ if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state
         else: st.error("رمز اشتباه است!")
     st.stop()
 
-# انتخاب لیست فعال
+# انتخاب لیست فعال - اصلاح شده
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" else st.session_state.messages_falcon
 
 st.title(f"{st.session_state.bot_mode} - {st.session_state.persona}")
