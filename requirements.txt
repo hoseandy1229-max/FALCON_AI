@@ -1,8 +1,10 @@
-openai
-urllib3
 streamlit
 groq
+openai
 streamlit-cookies-manager
-requests
-PyPDF2
-gTTS
+langchain
+langchain-openai
+langchain-community
+chromadb
+pypdf
+tavily-python
