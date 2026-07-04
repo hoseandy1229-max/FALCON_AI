@@ -1,4 +1,3 @@
-
 import streamlit as st
 from groq import Groq
 from openai import OpenAI
@@ -81,7 +80,8 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
         except: continue
     return "خطا در تحلیل تصویر."
 
-# لاگین
+# لاگین و سشن
+if "audio_data" not in st.session_state: st.session_state.audio_data = None
 if "username" not in st.session_state:
     if "username" in cookies: st.session_state.username = cookies["username"]
     else:
@@ -90,7 +90,6 @@ if "username" not in st.session_state:
         if st.button("تایید"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
 
-# تنظیمات اصلی
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
@@ -158,9 +157,10 @@ for i, msg in enumerate(current_messages):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
-            if st.button("🔊 پخش", key=f"audio_{i}"):
-                a_data = text_to_speech(msg["content"])
-                if a_data: st.audio(a_data, format="audio/mp3")
+            if st.button("🔊 پخش صدا", key=f"audio_{i}"):
+                with st.spinner("در حال تولید صدا..."):
+                    a_data = text_to_speech(msg["content"])
+                    if a_data: st.audio(a_data, format="audio/mp3")
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
