@@ -7,8 +7,6 @@ import base64
 import json
 import os
 from streamlit_cookies_manager import EncryptedCookieManager
-from gtts import gTTS
-from io import BytesIO
 import PyPDF2
 
 # مدیریت کوکی
@@ -149,14 +147,9 @@ for i, msg in enumerate(current_messages):
         else: st.markdown(msg["content"])
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
             if st.button("🔊 پخش صدا", key=f"audio_{i}"):
-                with st.spinner("در حال تولید..."):
-                    try:
-                        tts = gTTS(text=msg["content"], lang='fa')
-                        fp = BytesIO()
-                        tts.write_to_fp(fp)
-                        b64 = base64.b64encode(fp.getvalue()).decode()
-                        st.markdown(f'<audio autoplay="true" src="data:audio/mp3;base64,{b64}"></audio>', unsafe_allow_html=True)
-                    except Exception as e: st.error("خطا: ارتباط با سرور صوت برقرار نشد.")
+                encoded_text = urllib.parse.quote(msg["content"])
+                audio_url = f"https://text-to-speech.pollinations.ai/Speak?text={encoded_text}&voice=female"
+                st.markdown(f'<audio autoplay="true" src="{audio_url}"></audio>', unsafe_allow_html=True)
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
