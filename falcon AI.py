@@ -39,15 +39,6 @@ persona_prompts = {
 }
 
 # توابع کمکی
-def text_to_speech(text):
-    try:
-        tts = gTTS(text=text, lang='fa', slow=False)
-        fp = BytesIO()
-        tts.write_to_fp(fp)
-        fp.seek(0)
-        return fp
-    except: return None
-
 def extract_file_text(uploaded_file):
     text = ""
     try:
@@ -80,8 +71,7 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
         except: continue
     return "خطا در تحلیل تصویر."
 
-# لاگین و سشن
-if "audio_data" not in st.session_state: st.session_state.audio_data = None
+# لاگین
 if "username" not in st.session_state:
     if "username" in cookies: st.session_state.username = cookies["username"]
     else:
@@ -90,6 +80,7 @@ if "username" not in st.session_state:
         if st.button("تایید"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
 
+# تنظیمات اصلی
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
@@ -158,9 +149,15 @@ for i, msg in enumerate(current_messages):
         else: st.markdown(msg["content"])
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
             if st.button("🔊 پخش صدا", key=f"audio_{i}"):
-                with st.spinner("در حال تولید صدا..."):
-                    a_data = text_to_speech(msg["content"])
-                    if a_data: st.audio(a_data, format="audio/mp3")
+                with st.spinner("در حال آماده‌سازی..."):
+                    try:
+                        tts = gTTS(text=msg["content"], lang='fa', slow=False)
+                        fp = BytesIO()
+                        tts.write_to_fp(fp)
+                        b64 = base64.b64encode(fp.getvalue()).decode()
+                        md = f'<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
+                        st.markdown(md, unsafe_allow_html=True)
+                    except Exception as e: st.error(f"خطا: {e}")
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
