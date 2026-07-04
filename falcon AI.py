@@ -87,7 +87,7 @@ if not os.path.exists(user_dir): os.makedirs(user_dir)
 with st.sidebar:
     st.write(f"کاربر: {st.session_state.username}")
     new_mode = st.radio("بخش:", ["FALCON AI", "SR BOT"], index=0 if st.session_state.bot_mode=="FALCON AI" else 1)
-    if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.rerun()
+    if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"])
     
@@ -117,9 +117,11 @@ with st.sidebar:
 
 # رمز SR BOT
 if st.session_state.bot_mode == "SR BOT" and not st.session_state.auth_sr:
+    st.title("ورود به بخش سارا")
     pwd = st.text_input("رمز سارا:", type="password")
-    if st.button("ورود به سارا"):
+    if st.button("تایید رمز"):
         if pwd == "sara": st.session_state.auth_sr = True; st.rerun()
+        else: st.error("رمز اشتباه است!")
     st.stop()
 
 # انتخاب لیست فعال
@@ -154,7 +156,6 @@ if prompt := st.chat_input("پیام..."):
             current_messages.append({"role": "assistant", "content": res})
         elif mode == "🎨 تولید تصویر":
             with st.status("در حال انجام دستور تولید تصویر...", expanded=True) as status:
-                # ترجمه به انگلیسی برای تولید تصویر بهتر
                 tr_prompt = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"Translate to english, output ONLY the prompt"}, {"role":"user","content":prompt}]).choices[0].message.content
                 url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(tr_prompt)}?seed={random.randint(1,9999)}"
                 st.image(url)
