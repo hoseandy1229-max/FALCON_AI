@@ -3,5 +3,6 @@ urllib3
 streamlit
 groq
 streamlit-cookies-manager
-​requests
-​PyPDF2
+requests
+PyPDF2
+gTTS
