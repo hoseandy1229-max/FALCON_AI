@@ -152,7 +152,7 @@ current_messages = st.session_state.messages_sr if st.session_state.bot_mode == 
 st.title(f"{st.session_state.bot_mode} - {PERSONA_EMOJIS.get(st.session_state.persona)} {st.session_state.persona}")
 with st.container():
     st.markdown("<h3 style='text-align: center;'>حالت کاری:</h3>", unsafe_allow_html=True)
-    mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی"], index=2, horizontal=True, label_visibility="collapsed")
+    mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی", "📝 برنامه‌نویسی"], index=2, horizontal=True, label_visibility="collapsed")
 
 model_key = None
 uploaded_file = None
@@ -194,6 +194,28 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 st.image(url)
                 status.update(label="تصویر با موفقیت ساخته شد!", state="complete", expanded=False)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
+        elif mode == "📝 برنامه‌نویسی":
+            st.subheader("برنامه‌نویسی")
+            code = st.text_area("کد خود را وارد کنید:")
+            error = st.text_area("ارور خود را وارد کنید:")
+            question = st.text_input("سوال خود را وارد کنید:")
+
+            if st.button("تحلیل کد"):
+                analysis = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"analyze the code"}, {"role":"user","content":code}]).choices[0].message.content
+                st.markdown(analysis)
+
+            if st.button("پاسخ به سوال"):
+                answer = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"answer the question"}, {"role":"user","content":question}]).choices[0].message.content
+                st.markdown(answer)
+
+            if st.button("حل ارور"):
+                solution = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"solve the error"}, {"role":"user","content":error}]).choices[0].message.content
+                st.markdown(solution)
+
+            if st.button("کد بنویسم"):
+                code_to_write = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"write code"}, {"role":"user","content":prompt}]).choices[0].message.content
+                st.markdown(code_to_write)
+                current_messages.append({"role": "assistant", "content": code_to_write})
         else:
             with st.status("در حال بررسی حافظه و جستجوی وب...", expanded=True) as status:
                 memory = get_long_term_memory(user_dir)
