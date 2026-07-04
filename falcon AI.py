@@ -149,7 +149,7 @@ for i, msg in enumerate(current_messages):
             if st.button("🔊 پخش صدا", key=f"audio_{i}"):
                 encoded_text = urllib.parse.quote(msg["content"])
                 audio_url = f"https://text-to-speech.pollinations.ai/Speak?text={encoded_text}&voice=female"
-                st.markdown(f'<audio autoplay="true" src="{audio_url}"></audio>', unsafe_allow_html=True)
+                st.markdown(f'<audio controls autoplay="true" src="{audio_url}"></audio>', unsafe_allow_html=True)
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
