@@ -138,7 +138,6 @@ if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state
         else: st.error("رمز اشتباه است!")
     st.stop()
 
-# انتخاب لیست فعال - اصلاح شده
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" else st.session_state.messages_falcon
 
 st.title(f"{st.session_state.bot_mode} - {st.session_state.persona}")
@@ -179,9 +178,17 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             with st.status("در حال بررسی حافظه و جستجوی وب...", expanded=True) as status:
                 memory = get_long_term_memory(user_dir)
                 search_results = search_web(prompt)
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه قبلی: {memory}. نتایج جستجو: {search_results}. پاسخ‌ها را فارسی بده."
+                
+                # فشرده‌سازی برای جلوگیری از خطا
+                memory_str = str(memory)[:500] 
+                search_str = str(search_results)[:500]
+                
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه قبلی: {memory_str}. نتایج جستجو: {search_str}. پاسخ‌ها را فارسی بده."
+                
                 res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
-                    model=selected_model, messages=[{"role":"system","content":sys_prompt}] + current_messages[-5:], temperature=0.2
+                    model=selected_model, 
+                    messages=[{"role":"system","content":sys_prompt}] + current_messages[-3:],
+                    temperature=0.2
                 ).choices[0].message.content
                 st.markdown(res)
                 status.update(label="پاسخ آماده شد!", state="complete", expanded=False)
