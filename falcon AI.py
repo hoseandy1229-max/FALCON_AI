@@ -149,15 +149,14 @@ for i, msg in enumerate(current_messages):
         else: st.markdown(msg["content"])
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
             if st.button("🔊 پخش صدا", key=f"audio_{i}"):
-                with st.spinner("در حال آماده‌سازی..."):
+                with st.spinner("در حال تولید..."):
                     try:
-                        tts = gTTS(text=msg["content"], lang='fa', slow=False)
+                        tts = gTTS(text=msg["content"], lang='fa')
                         fp = BytesIO()
                         tts.write_to_fp(fp)
                         b64 = base64.b64encode(fp.getvalue()).decode()
-                        md = f'<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
-                        st.markdown(md, unsafe_allow_html=True)
-                    except Exception as e: st.error(f"خطا: {e}")
+                        st.markdown(f'<audio autoplay="true" src="data:audio/mp3;base64,{b64}"></audio>', unsafe_allow_html=True)
+                    except Exception as e: st.error("خطا: ارتباط با سرور صوت برقرار نشد.")
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
