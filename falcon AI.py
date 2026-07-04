@@ -1,3 +1,4 @@
+
 import streamlit as st
 from groq import Groq
 from openai import OpenAI
@@ -147,9 +148,10 @@ for i, msg in enumerate(current_messages):
         else: st.markdown(msg["content"])
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
             if st.button("🔊 پخش صدا", key=f"audio_{i}"):
-                encoded_text = urllib.parse.quote(msg["content"])
-                audio_url = f"https://text-to-speech.pollinations.ai/Speak?text={encoded_text}&voice=female"
-                st.markdown(f'<audio controls autoplay="true" src="{audio_url}"></audio>', unsafe_allow_html=True)
+                with st.spinner("🎧 در حال پردازش صوت..."):
+                    params = urllib.parse.urlencode({"text": msg["content"], "voice": "female"})
+                    audio_url = f"https://text-to-speech.pollinations.ai/Speak?{params}"
+                    st.audio(audio_url, format="audio/mp3")
 
 if prompt := st.chat_input("پیام..."):
     current_messages.append({"role": "user", "content": prompt})
