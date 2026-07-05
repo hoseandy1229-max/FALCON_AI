@@ -117,14 +117,13 @@ with st.sidebar:
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
             try:
-                # خواندن کل جدول بدون فیلتر ستون برای رفع خطای PGRST125
-                res = supabase.table("Falcon").select("*").execute()
-                if res.data and len(res.data) > 0:
+                res = supabase.table("Falcon").select("username").limit(10).execute()
+                if res.data:
                     users = list(set([u.get('username') for u in res.data if u.get('username')]))
                     sel_u = st.selectbox("کاربران لاگین کرده:", users)
                     if sel_u:
-                        for msg in res.data:
-                            if msg.get('username') == sel_u: st.write(f"**{msg.get('role')}:** {msg.get('content')}")
+                        chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).execute().data
+                        for msg in chat_data: st.write(f"**{msg.get('role')}:** {msg.get('content')}")
                 else: st.write("دیتا خالی است")
             except Exception as e: st.write(f"خطا در پنل: {e}")
         elif admin_pwd: st.error("رمز غلط")
