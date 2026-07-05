@@ -64,9 +64,9 @@ def get_client_and_model(model_name):
     if "/" in model_name: return or_client, model_name
     return groq_client, model_name
 
-def get_long_term_memory(username, n=10):
+def get_long_term_memory(username, mode, n=10):
     try:
-        res = supabase.table("falcon").select("role, content").eq("username", username).order("id", desc=True).limit(n).execute()
+        res = supabase.table("falcon").select("role, content").eq("username", username).eq("mode", mode).order("id", desc=True).limit(n).execute()
         return [{"role": i["role"], "content": i["content"]} for i in reversed(res.data)]
     except: return []
 
