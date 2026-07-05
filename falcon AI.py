@@ -18,7 +18,7 @@ if not cookies.ready(): st.stop()
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide", page_icon="logo.png")
 
-# اتصال به دیتابیس Supabase
+# اتصال به دیتابیس سوپابیس
 supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 # کلاینت Tavily
@@ -134,7 +134,7 @@ with st.sidebar:
                 if sel_u:
                     chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).execute().data
                     for msg in chat_data: st.write(f"**{msg['role']}:** {msg['content']}")
-            except Exception as e: st.write("خطا در پنل:", e)
+            except Exception: st.write("دیتا خالی است.")
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
