@@ -113,6 +113,7 @@ with st.sidebar:
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"])
+    active_client = or_client if "/" in selected_model else groq_client
 
     with st.expander("📜 تاریخچه گفت و گوها"):
         history_files = sorted([f for f in os.listdir(user_dir) if f.endswith(".json")], reverse=True)
@@ -172,6 +173,7 @@ if mode == "📝 برنامه‌نویسی":
     if btn_fix or btn_test or btn_gen or btn_trans:
         task = "اصلاح کد" if btn_fix else "تولید Unit Test" if btn_test else "نوشتن کد" if btn_gen else f"تبدیل از {lang_src} به {lang_dest}"
         system_msg = f"تو یک متخصص برنامه‌نویسی هستی. وظیفه تو {task} است. فقط کد خروجی بده."
+        # اصلاح: حذف mode از دیکشنری‌های ارسالی به API
         with st.spinner(f"در حال {task}..."):
             resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system", "content": system_msg}, {"role":"user", "content": code_input}]).choices[0].message.content
             st.code(resp, language=lang_dest if btn_trans else lang_src)
@@ -216,10 +218,10 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 memory = get_long_term_memory(user_dir)
                 search_results = search_web(prompt)
                 sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه: {str(memory)[:500]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
-                # پاکسازی پیام‌ها برای ارسال به API
+                # اصلاح: فقط حذف mode از لیست ارسالی به API
                 clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
                 messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
-                res = (or_client if "/" in selected_model else groq_client).chat.completions.create(model=selected_model, messages=messages_to_send, temperature=0.2).choices[0].message.content
+                res = active_client.chat.completions.create(model=selected_model, messages=messages_to_send, temperature=0.2).choices[0].message.content
                 st.markdown(res)
             current_messages.append({"role": "assistant", "content": res, "mode": mode})
     
