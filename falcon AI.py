@@ -9,22 +9,19 @@ import os
 from datetime import datetime
 from streamlit_cookies_manager import EncryptedCookieManager
 from tavily import TavilyClient
-from supabase import create_client
 
-# مدیریت کوکی
+# مدیریت کوکی‌ها
 cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", password="some_secret_password")
 if not cookies.ready(): st.stop()
-
 if not os.path.exists("history"): os.makedirs("history")
 st.set_page_config(page_title="Falcon AI", layout="wide", page_icon="logo.png")
 
-# اتصال به دیتابیس سوپابیس
-supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-
-# کلاینت Tavily
+# کلاینت‌های اتصال
 tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
+groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
-# استایل‌ها
+# استایل‌های CSS
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -35,17 +32,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# سیستم شخصیت‌ها
+# سیستم پرسونا
 PERSONAS = {
-    "دستیار (منظم)": "تو یک دستیار هوشمند، دقیق و بسیار منظم هستی.",
-    "دانا (دانشمند)": "تو یک دانشمند هستی که با دقت و علمی پاسخ می‌دهی.",
-    "سارا (دوست‌داشتنی)": "تو یک دوست صمیمی و مهربان هستی که با لحن گرم صحبت می‌کنی.",
-    "استاد (سخت‌گیر)": "تو یک استاد سخت‌گیر هستی که به طور مختصر و فنی پاسخ می‌دهی.",
+    "دستیار (منظم)": "تو یک دستیار هوشمند و دقیق هستی.",
+    "دانا (دانشمند)": "تو یک دانشمند هستی با دانش عمیق.",
+    "سارا (دوست‌داشتنی)": "تو یک دوست صمیمی و بسیار مهربان هستی.",
+    "استاد (سخت‌گیر)": "تو یک استاد سخت‌گیر و فنی پاسخ می‌دهی.",
     "شوخ (طناز)": "تو همیشه با شوخی و طنز پاسخ می‌دهی.",
-    "فیلسوف (متفکر)": "تو با دیدگاه فلسفی و عمیق به سوالات نگاه می‌کنی.",
-    "نویسنده (خلاق)": "تو با ادبیاتی شاعرانه و خلاقانه پاسخ می‌دهی.",
-    "کدنویس (منطقی)": "تو تمرکزت روی منطق و حل مسئله است و پاسخ‌های ساختاریافته می‌دهی.",
-    "مربی (انگیزشی)": "تو پاسخ‌هایت پر از انرژی و انگیزه‌بخشی است."
+    "فیلسوف (متفکر)": "تو با نگاهی فلسفی پاسخ می‌دهی.",
+    "نویسنده (خلاق)": "تو با ادبیاتی شاعرانه پاسخ می‌دهی.",
+    "کدنویس (منطقی)": "تو متخصص حل مسئله و منطق برنامه‌نویسی هستی.",
+    "مربی (انگیزشی)": "تو پاسخ‌های پرانرژی و انگیزه بخش داری."
 }
 
 PERSONA_EMOJIS = {
@@ -60,6 +57,7 @@ vision_model_options = {
     "Qwen VL": "qwen/qwen-2-vl-72b-instruct", "Pixtral": "mistralai/pixtral-12b"
 }
 
+# توابع عملیاتی
 def get_client_and_model(model_name):
     if "/" in model_name: return or_client, model_name
     return groq_client, model_name
@@ -78,108 +76,99 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
         except: continue
     return "خطا در تحلیل تصویر."
 
-# لاگین
+# احراز هویت اولیه
 if "username" not in st.session_state:
     if "username" in cookies: st.session_state.username = cookies["username"]
     else:
         st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
-        user_input = st.text_input("نام کاربری:")
-        if st.button("تایید"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
+        user_input = st.text_input("نام کاربری را وارد کن:")
+        if st.button("تایید ورود"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
 
-# تنظیمات اصلی
-groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
-
+# مقداردهی وضعیت‌ها
 if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
 if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰"
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 
-# سایدبار
+# سایدبار تنظیمات
 with st.sidebar:
     st.image("logo.png", use_column_width=True)
-    st.write(f"کاربر: {st.session_state.username}")
-    new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0)
+    st.write(f"کاربر فعلی: {st.session_state.username}")
+    new_mode = st.radio("بخش عملیاتی:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
-    st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
-    selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"])
+    st.session_state.persona = st.selectbox("انتخاب پرسونا:", list(PERSONAS.keys()))
+    selected_model = st.selectbox("انتخاب مدل:", ["llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"])
 
-    with st.expander("📜 تاریخچه گفت و گوها"):
-        if st.button("➕ شروع گفت و گوی جدید"):
+    with st.expander("📜 تاریخچه چت‌ها"):
+        if st.button("➕ شروع چت جدید"):
             if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
             else: st.session_state.messages_falcon = []
             st.rerun()
-        st.write("تاریخچه بارگذاری شد.")
+        st.write("مدیریت تاریخچه محلی.")
 
-    with st.expander(" 🔒 پنل مالکیت"):
-        admin_pwd = st.text_input("رمز:", type="password")
+    with st.expander(" 🔒 پنل ادمین"):
+        admin_pwd = st.text_input("رمز عبور ادمین:", type="password")
         if admin_pwd == "admin123":
-            try:
-                res = supabase.table("Falcon").select("username").limit(10).execute()
-                if res.data:
-                    users = list(set([u.get('username') for u in res.data if u.get('username')]))
-                    sel_u = st.selectbox("کاربران لاگین کرده:", users)
-                    if sel_u:
-                        chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).execute().data
-                        for msg in chat_data: st.write(f"**{msg.get('role')}:** {msg.get('content')}")
-                else: st.write("دیتا خالی است")
-            except Exception as e: st.write(f"خطا در پنل: {e}")
-        elif admin_pwd: st.error("رمز غلط")
+            st.write("فایل‌های ذخیره شده:")
+            for f_name in os.listdir("history"): st.write(f"📁 {f_name}")
+        elif admin_pwd: st.error("رمز ادمین غلط است")
 
-# رمز SR BOT
+# منطق بخش خصوصی
 if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state.auth_sr:
-    st.title("ورودی بخش خصوصی")
-    pwd = st.text_input("رمز عبور:", type="password")
-    if st.button("تایید رمز"):
+    st.title("حفاظت شده - SR BOT")
+    pwd = st.text_input("رمز عبور خصوصی:", type="password")
+    if st.button("ورود"):
         if pwd == "sara": st.session_state.auth_sr = True; st.rerun()
         else: st.error("رمز اشتباه است!")
     st.stop()
 
+# انتخاب پیام‌ها
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" else st.session_state.messages_falcon
 
+# رابط کاربری اصلی
 st.title(f"{st.session_state.bot_mode} - {PERSONA_EMOJIS.get(st.session_state.persona)} {st.session_state.persona}")
 with st.container():
-    st.markdown("<h3 style='text-align: center;'>حالت کاری:</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>حالت‌های کاری:</h3>", unsafe_allow_html=True)
     mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی", "📝 برنامه‌نویسی"], index=2, horizontal=True, label_visibility="collapsed")
 
-model_key = None
-uploaded_file = None
+model_key, uploaded_file = None, None
 
+# مود برنامه‌نویسی
 if mode == "📝 برنامه‌نویسی":
-    st.subheader("💻 Falcon Code Studio")
-    code_input = st.text_area("کد یا درخواست خود را وارد کنید:", height=200)
+    st.subheader("💻 محیط Falcon Code Studio")
+    code_input = st.text_area("کد را وارد کن:", height=200)
     col_l1, col_l2 = st.columns(2)
-    with col_l1: lang_src = st.selectbox("زبان مبدأ:", ["python", "javascript", "cpp", "java", "html", "css"])
-    with col_l2: lang_dest = st.selectbox("تبدیل به:", ["javascript", "python", "java", "cpp", "csharp", "php"])
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: btn_fix = st.button("🛠️ دیباگ")
-    with col2: btn_test = st.button("🧪 تولید Unit Test")
-    with col3: btn_gen = st.button("✨ تولید کد")
-    with col4: btn_trans = st.button("🔄 تبدیل زبان")
+    with col_l1: lang_src = st.selectbox("زبان فعلی:", ["python", "javascript", "cpp", "java", "html", "css"])
+    with col_l2: lang_dest = st.selectbox("مقصد تبدیل:", ["javascript", "python", "java", "cpp", "csharp", "php"])
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: btn_fix = st.button("🛠️ دیباگ")
+    with c2: btn_test = st.button("🧪 یونیت تست")
+    with c3: btn_gen = st.button("✨ تولید کد")
+    with c4: btn_trans = st.button("🔄 تبدیل")
     if btn_fix or btn_test or btn_gen or btn_trans:
         task = "اصلاح کد" if btn_fix else "تولید Unit Test" if btn_test else "نوشتن کد" if btn_gen else f"تبدیل از {lang_src} به {lang_dest}"
         resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"user", "content": f"Task: {task}. Code: {code_input}"}]).choices[0].message.content
         st.code(resp, language=lang_dest if btn_trans else lang_src)
         current_messages.append({"role": "assistant", "content": resp})
-        try: supabase.table("Falcon").upsert({"username": str(st.session_state.username), "role": "assistant", "content": str(resp), "mode": str(mode)}).execute()
-        except Exception as e: pass
-elif mode == "👁️ تحلیل عکس":
-    model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
-    model_key = vision_model_options[model_name]
-    uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
 
+# مود تحلیل عکس
+elif mode == "👁️ تحلیل عکس":
+    model_name = st.selectbox("انتخاب مدل:", list(vision_model_options.keys()))
+    model_key = vision_model_options[model_name]
+    uploaded_file = st.file_uploader("آپلود تصویر:", type=["jpg", "jpeg", "png"])
+
+# نمایش پیام‌ها
 for i, msg in enumerate(current_messages):
     av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
     with st.chat_message(msg["role"], avatar=av):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
-if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
+# پردازش چت
+if prompt := st.chat_input("پیام خود را تایپ کنید..."):
     current_messages.append({"role": "user", "content": prompt})
-    try: supabase.table("Falcon").upsert({"username": str(st.session_state.username), "role": "user", "content": str(prompt), "mode": str(mode)}).execute()
-    except Exception as e: pass
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
         if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
@@ -193,6 +182,12 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             res = client.chat.completions.create(model=model, messages=[{"role": "system", "content": PERSONAS[st.session_state.persona]}, {"role": "user", "content": prompt}]).choices[0].message.content
             st.markdown(res)
         current_messages.append({"role": "assistant", "content": res})
-        try: supabase.table("Falcon").upsert({"username": str(st.session_state.username), "role": "assistant", "content": str(res), "mode": str(mode)}).execute()
-        except Exception as e: pass
+        with open(f"history/{st.session_state.username}.json", "w") as f:
+            json.dump(current_messages, f)
     st.rerun()
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# خط ۲۲۳ - پایان لاگ سیستم
+# خط ۲۲۴ - آماده برای تغییرات
+# خط ۲۲۵ - تمام شد.
