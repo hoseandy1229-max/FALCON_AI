@@ -66,7 +66,7 @@ def get_client_and_model(model_name):
 
 def get_long_term_memory(username, mode, n=10):
     try:
-        res = supabase.table("Falcon").select("role, content").eq("username", username).eq("mode", mode).order("id", desc=True).limit(n).execute()
+        res = supabase.from_("Falcon").select("role, content").eq("username", username).eq("mode", mode).order("id", desc=True).limit(n).execute()
         return [{"role": i["role"], "content": i["content"]} for i in reversed(res.data)]
     except: return []
 
@@ -112,7 +112,7 @@ if "persona" not in st.session_state: st.session_state.persona = "دستیار (
 with st.sidebar:
     st.image("logo.png", use_column_width=True)
     st.write(f"کاربر: {st.session_state.username}")
-    new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝒄𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0 if st.session_state.bot_mode=="𝑭𝑨𝑳𝒄𝑶𝑵 𝑨𝑰" else 1)
+    new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"])
@@ -128,11 +128,11 @@ with st.sidebar:
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
             try:
-                res = supabase.table("Falcon").select("username").execute()
+                res = supabase.from_("Falcon").select("username").execute()
                 users = list(set([u['username'] for u in res.data]))
                 sel_u = st.selectbox("کاربر:", users)
                 if sel_u:
-                    chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).order("id", desc=False).execute().data
+                    chat_data = supabase.from_("Falcon").select("role, content").eq("username", sel_u).order("id", desc=False).execute().data
                     for msg in chat_data: st.write(f"**{msg['role']}:** {msg['content']}")
             except Exception as e: st.write("خطا:", e)
         elif admin_pwd: st.error("رمز غلط")
@@ -172,7 +172,7 @@ if mode == "📝 برنامه‌نویسی":
         resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"user", "content": f"Task: {task}. Code: {code_input}"}]).choices[0].message.content
         st.code(resp, language=lang_dest if btn_trans else lang_src)
         current_messages.append({"role": "assistant", "content": resp})
-        try: supabase.table("Falcon").insert({"username": st.session_state.username, "role": "assistant", "content": resp, "mode": mode}).execute()
+        try: supabase.from_("Falcon").insert({"username": st.session_state.username, "role": "assistant", "content": resp, "mode": mode}).execute()
         except: pass
 elif mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
@@ -187,7 +187,7 @@ for i, msg in enumerate(current_messages):
 
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     current_messages.append({"role": "user", "content": prompt})
-    try: supabase.table("Falcon").insert({"username": st.session_state.username, "role": "user", "content": prompt, "mode": mode}).execute()
+    try: supabase.from_("Falcon").insert({"username": st.session_state.username, "role": "user", "content": prompt, "mode": mode}).execute()
     except: pass
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
@@ -202,6 +202,6 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             res = client.chat.completions.create(model=model, messages=[{"role": "system", "content": PERSONAS[st.session_state.persona]}, {"role": "user", "content": prompt}]).choices[0].message.content
             st.markdown(res)
         current_messages.append({"role": "assistant", "content": res})
-        try: supabase.table("Falcon").insert({"username": st.session_state.username, "role": "assistant", "content": res, "mode": mode}).execute()
+        try: supabase.from_("Falcon").insert({"username": st.session_state.username, "role": "assistant", "content": res, "mode": mode}).execute()
         except: pass
     st.rerun()
