@@ -50,6 +50,7 @@ PERSONA_EMOJIS = {
     "نویسنده (خلاق)": "✍️", "کدنویس (منطقی)": "💻", "مربی (انگیزشی)": "🔥"
 }
 
+# مدل‌های تحلیل تصویر
 vision_model_options = {
     "اتوماتیک": "auto", "Gemma 4": "google/gemma-4-31b-it", "Nemotron": "nvidia/nemotron-3-nano-omni",
     "Gemini Flash": "google/gemini-2.5-flash", "Llama 3.2 Vision": "meta-llama/llama-3.2-11b-vision-instruct",
@@ -113,7 +114,7 @@ with st.sidebar:
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"])
-    
+
     st.subheader("تاریخچه گفت و گو")
     for f in [f for f in os.listdir(user_dir) if f.endswith(".json")]:
         if st.button(f):
@@ -149,63 +150,88 @@ if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state
 current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" else st.session_state.messages_falcon
 
 st.title(f"{st.session_state.bot_mode} - {PERSONA_EMOJIS.get(st.session_state.persona)} {st.session_state.persona}")
-mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی", "📝 برنامه‌نویسی"], index=2, horizontal=True)
+with st.container():
+    st.markdown("<h3 style='text-align: center;'>حالت کاری:</h3>", unsafe_allow_html=True)
+    mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی", "📝 برنامه‌نویسی"], index=2, horizontal=True, label_visibility="collapsed")
 
-# لاجیک بخش ها
+model_key = None
+uploaded_file = None
 if mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
+    model_key = vision_model_options[model_name]
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
-    if prompt := st.chat_input("توضیح عکس را بنویس..."):
-        with st.chat_message("user"): st.markdown(prompt)
-        with st.chat_message("assistant"):
-            res = analyze_image(uploaded_file, prompt, vision_model_options[model_name])
-            st.markdown(res)
-            current_messages.append({"role": "user", "content": prompt})
-            current_messages.append({"role": "assistant", "content": res})
 
-elif mode == "🎨 تولید تصویر":
-    if prompt := st.chat_input("توصیف تصویر..."):
-        with st.chat_message("user"): st.markdown(prompt)
-        with st.chat_message("assistant"):
-            tr_prompt = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"Translate to english, output ONLY the prompt"}, {"role":"user","content":prompt}]).choices[0].message.content
-            url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(tr_prompt)}?seed={random.randint(1,9999)}"
-            st.image(url)
-            current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
+# نمایش پیام‌ها
+for i, msg in enumerate(current_messages):
+    av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
+    with st.chat_message(msg["role"], avatar=av):
+        if msg.get("type") == "image_gen": st.image(msg["content"])
+        else: st.markdown(msg["content"])
 
-elif mode == "📝 برنامه‌نویسی":
-    st.subheader("💻 Falcon Code Studio")
-    code_input = st.text_area("کد یا درخواست خود را وارد کنید:")
-    lang = st.selectbox("زبان برنامه‌نویسی:", ["Python", "JavaScript", "C++", "Java", "HTML/CSS"])
-    
-    col1, col2, col3 = st.columns(3)
-    with col1: btn_fix = st.button("🛠️ دیباگ و اصلاح")
-    with col2: btn_test = st.button("🧪 تولید Unit Test")
-    with col3: btn_gen = st.button("✨ تولید کد")
-    
-    if btn_fix or btn_test or btn_gen:
-        task = "اصلاح کد" if btn_fix else "تولید Unit Test" if btn_test else "نوشتن کد"
-        with st.spinner(f"در حال {task}..."):
-            resp = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role":"system", "content":f"تو یک متخصص برنامه‌نویسی هستی. وظیفه تو {task} به زبان {lang} است."},
-                          {"role":"user", "content":code_input}]
-            ).choices[0].message.content
-            st.code(resp, language=lang.lower())
-            current_messages.append({"role": "assistant", "content": f"**{task}:**\n{resp}"})
+        if msg["role"] == "assistant" and msg.get("type") != "image_gen":
+            col1, col2 = st.columns([0.5, 0.5])
+            with col1: 
+                if st.button("👍", key=f"like_{i}"): 
+                    st.session_state.user_pref += f" [لایک: {msg['content'][:15]}]"
+            with col2: 
+                if st.button("👎", key=f"dislike_{i}"): 
+                    st.session_state.user_pref += f" [دیس: {msg['content'][:15]}]"
 
-else: # چت عادی
-    for i, msg in enumerate(current_messages):
-        with st.chat_message(msg["role"]): st.markdown(msg["content"])
-    
-    if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
-        current_messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"): st.markdown(prompt)
-        with st.chat_message("assistant"):
-            with st.status("در حال پردازش...", expanded=True):
-                res = groq_client.chat.completions.create(model=selected_model, messages=[{"role":"system","content":f"شخصیت: {PERSONAS[st.session_state.persona]}. پاسخ فارسی بده."}] + current_messages[-3:]).choices[0].message.content
+if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
+    current_messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"): st.markdown(prompt)
+    with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
+        if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
+            with st.status("در حال تجزیه و تحلیل اطلاعات...", expanded=True) as status:
+                res = analyze_image(uploaded_file, prompt, model_key)
                 st.markdown(res)
+                status.update(label="تحلیل انجام شد!", state="complete", expanded=False)
             current_messages.append({"role": "assistant", "content": res})
-
-# ذخیره خودکار
-fname = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-with open(os.path.join(user_dir, fname), 'w', encoding='utf-8') as file: json.dump(current_messages, file)
+        elif mode == "🎨 تولید تصویر":
+            with st.status("در حال انجام دستور تولید تصویر...", expanded=True) as status:
+                tr_prompt = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"Translate to english, output ONLY the prompt"}, {"role":"user","content":prompt}]).choices[0].message.content
+                url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(tr_prompt)}?seed={random.randint(1,9999)}"
+                st.image(url)
+                status.update(label="تصویر با موفقیت ساخته شد!", state="complete", expanded=False)
+            current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
+        elif mode == "📝 برنامه‌نویسی":
+            st.subheader("💻 Falcon Code Studio")
+            code_input = st.text_area("کد یا درخواست خود را وارد کنید:", height=200)
+            col_l1, col_l2 = st.columns(2)
+            with col_l1: lang_src = st.selectbox("زبان مبدأ:", ["python", "javascript", "cpp", "java", "html", "css"])
+            with col_l2: lang_dest = st.selectbox("تبدیل به:", ["javascript", "python", "java", "cpp", "csharp", "php"])
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1: btn_fix = st.button("🛠️ دیباگ")
+            with col2: btn_test = st.button("🧪 تولید Unit Test")
+            with col3: btn_gen = st.button("✨ تولید کد")
+            with col4: btn_trans = st.button("🔄 تبدیل زبان")
+            
+            if btn_fix or btn_test or btn_gen or btn_trans:
+                task = "اصلاح کد" if btn_fix else "تولید Unit Test" if btn_test else "نوشتن کد" if btn_gen else f"تبدیل از {lang_src} به {lang_dest}"
+                system_msg = f"تو یک متخصص برنامه‌نویسی هستی. وظیفه تو {task} است. فقط کد خروجی بده."
+                with st.spinner(f"در حال {task}..."):
+                    resp = groq_client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[{"role":"system", "content": system_msg}, {"role":"user", "content": code_input}]
+                    ).choices[0].message.content
+                    st.code(resp, language=lang_dest if btn_trans else lang_src)
+                    current_messages.append({"role": "assistant", "content": f"**{task} خروجی:**\n\n{resp}"})
+        else:
+            with st.status("در حال بررسی حافظه و جستجوی وب...", expanded=True) as status:
+                memory = get_long_term_memory(user_dir)
+                search_results = search_web(prompt)
+                memory_str = str(memory)[:500] 
+                search_str = str(search_results)[:500]
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. ترجیحات: {st.session_state.user_pref}. حافظه: {memory_str}. جستجو: {search_str}. پاسخ فارسی بده."
+                res = (or_client if "/" in selected_model else groq_client).chat.completions.create(
+                    model=selected_model, 
+                    messages=[{"role":"system","content":sys_prompt}] + current_messages[-3:],
+                    temperature=0.2
+                ).choices[0].message.content
+                st.markdown(res)
+                status.update(label="پاسخ آماده شد!", state="complete", expanded=False)
+            current_messages.append({"role": "assistant", "content": res})
+    fname = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(os.path.join(user_dir, fname), 'w', encoding='utf-8') as file: json.dump(current_messages, file)
+    st.rerun()
