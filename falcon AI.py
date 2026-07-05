@@ -104,24 +104,22 @@ with st.sidebar:
     st.session_state.persona = st.selectbox("انتخاب شخصیت:", list(PERSONAS.keys()))
     selected_model = st.selectbox("مدل پردازش:", ["llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"])
 
-    with st.expander("📜 تاریخچه گفت و گوها"):
-        if st.button("➕ شروع یک گفت و گوی جدید"):
-            if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
-            else: st.session_state.messages_falcon = []
-            st.rerun()
+    if st.button("ذخیره و شروع جدید"):
+        if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
+        else: st.session_state.messages_falcon = []
+        st.rerun()
 
-    with st.expander(" 🔒 پنل مالکیت"):
-        admin_pwd = st.text_input("رمز ورود:", type="password")
+    with st.expander(" 🔒 پنل ادمین"):
+        admin_pwd = st.text_input("رمز ادمین:", type="password")
         if admin_pwd == "admin123":
-            all_files = [f for f in os.listdir("history") if f.endswith(".json")]
-            users = [f.replace(".json", "") for f in all_files]
-            selected_user = st.selectbox("انتخاب کاربر:", users)
-            if selected_user:
-                with st.expander(f"چت‌های {selected_user}"):
-                    with open(f"history/{selected_user}.json", "r") as f:
-                        chat_history = json.load(f)
-                        for msg in chat_history:
-                            with st.chat_message(msg["role"]): st.markdown(msg["content"])
+            users = [f.replace(".json", "") for f in os.listdir("history") if f.endswith(".json")]
+            selected_user = st.selectbox("کاربر:", users)
+            selected_chat = st.selectbox("چت:", ["مشاهده کل تاریخچه"])
+            if st.button("مشاهده"):
+                with open(f"history/{selected_user}.json", "r") as f:
+                    chat_history = json.load(f)
+                    for msg in chat_history:
+                        with st.chat_message(msg["role"]): st.markdown(msg["content"])
         elif admin_pwd: st.error("رمز عبور اشتباه است!")
 
 # --- رمز بخش خصوصی ---
@@ -194,5 +192,3 @@ if prompt := st.chat_input("تایپ کن و ارسال کن..."):
         with open(f"history/{st.session_state.username}.json", "w") as f:
             json.dump(current_messages, f)
     st.rerun()
-
-# [پایان فایل - ساختار حفظ شد]
