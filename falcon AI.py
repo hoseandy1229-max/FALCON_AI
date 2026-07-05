@@ -176,14 +176,16 @@ if mode == "📝 برنامه‌نویسی":
         with st.spinner(f"در حال {task}..."):
             resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system", "content": system_msg}, {"role":"user", "content": code_input}]).choices[0].message.content
             st.code(resp, language=lang_dest if btn_trans else lang_src)
-            current_messages.append({"role": "assistant", "content": f"**{task} خروجی:**\n\n{resp}"})
+            # ذخیره با درج مُد
+            current_messages.append({"role": "assistant", "content": f"**{task} خروجی:**\n\n{resp}", "mode": "📝 برنامه‌نویسی"})
 elif mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
     model_key = vision_model_options[model_name]
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
 
-# نمایش پیام‌ها
+# نمایش پیام‌ها - فقط پیام‌های مرتبط با مود فعلی نمایش داده می‌شوند
 for i, msg in enumerate(current_messages):
+    if msg.get("mode", mode) != mode: continue # فیلتر بر اساس حالت
     av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
     with st.chat_message(msg["role"], avatar=av):
         if msg.get("type") == "image_gen": st.image(msg["content"])
@@ -197,20 +199,20 @@ for i, msg in enumerate(current_messages):
                 if st.button("👎", key=f"dislike_{i}"): st.session_state.user_pref += f" [دیس: {msg['content'][:15]}]"
 
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
-    current_messages.append({"role": "user", "content": prompt})
+    current_messages.append({"role": "user", "content": prompt, "mode": mode})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
         if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
             with st.status("در حال تجزیه و تحلیل...", expanded=True) as status:
                 res = analyze_image(uploaded_file, prompt, model_key)
                 st.markdown(res)
-            current_messages.append({"role": "assistant", "content": res})
+            current_messages.append({"role": "assistant", "content": res, "mode": mode})
         elif mode == "🎨 تولید تصویر":
             with st.status("در حال تولید تصویر...", expanded=True) as status:
                 tr_prompt = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"Translate to english, output ONLY the prompt"}, {"role":"user","content":prompt}]).choices[0].message.content
                 url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(tr_prompt)}?seed={random.randint(1,9999)}"
                 st.image(url)
-            current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
+            current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
                 memory = get_long_term_memory(user_dir)
@@ -218,7 +220,7 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه: {str(memory)[:500]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
                 res = (or_client if "/" in selected_model else groq_client).chat.completions.create(model=selected_model, messages=[{"role":"system","content":sys_prompt}] + current_messages[-3:], temperature=0.2).choices[0].message.content
                 st.markdown(res)
-            current_messages.append({"role": "assistant", "content": res})
+            current_messages.append({"role": "assistant", "content": res, "mode": mode})
     
     fname = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     with open(os.path.join(user_dir, fname), 'w', encoding='utf-8') as file: json.dump(current_messages, file)
