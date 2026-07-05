@@ -216,7 +216,10 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 memory = get_long_term_memory(user_dir)
                 search_results = search_web(prompt)
                 sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه: {str(memory)[:500]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
-                res = (or_client if "/" in selected_model else groq_client).chat.completions.create(model=selected_model, messages=[{"role":"system","content":sys_prompt}] + current_messages[-3:], temperature=0.2).choices[0].message.content
+                # پاکسازی پیام‌ها برای ارسال به API
+                clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
+                messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
+                res = (or_client if "/" in selected_model else groq_client).chat.completions.create(model=selected_model, messages=messages_to_send, temperature=0.2).choices[0].message.content
                 st.markdown(res)
             current_messages.append({"role": "assistant", "content": res, "mode": mode})
     
