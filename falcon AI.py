@@ -66,8 +66,8 @@ def get_client_and_model(model_name):
 
 def get_long_term_memory(username, mode, n=10):
     try:
-        res = supabase.table("Falcon").select("role, content").eq("username", username).eq("mode", mode).order("id", desc=False).limit(n).execute()
-        return [{"role": i["role"], "content": i["content"]} for i in res.data]
+        res = supabase.table("Falcon").select("role, content").eq("username", username).eq("mode", mode).order("id", desc=True).limit(n).execute()
+        return [{"role": i["role"], "content": i["content"]} for i in reversed(res.data)]
     except: return []
 
 def search_web(query):
@@ -172,8 +172,6 @@ if mode == "📝 برنامه‌نویسی":
         resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"user", "content": f"Task: {task}. Code: {code_input}"}]).choices[0].message.content
         st.code(resp, language=lang_dest if btn_trans else lang_src)
         current_messages.append({"role": "assistant", "content": resp})
-        try: supabase.table("Falcon").insert({"username": st.session_state.username, "role": "assistant", "content": resp, "mode": mode}).execute()
-        except: pass
 elif mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
     model_key = vision_model_options[model_name]
@@ -187,8 +185,6 @@ for i, msg in enumerate(current_messages):
 
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     current_messages.append({"role": "user", "content": prompt})
-    try: supabase.table("Falcon").insert({"username": st.session_state.username, "role": "user", "content": prompt, "mode": mode}).execute()
-    except: pass
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
         if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
@@ -199,10 +195,7 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             st.image(res)
         else:
             client, model = get_client_and_model(selected_model)
-            # اینجا فقط آخرین پیام کاربر فرستاده میشه تا هذیان نگوید
-            res = client.chat.completions.create(model=model, messages=[{"role": "user", "content": prompt}]).choices[0].message.content
+            res = client.chat.completions.create(model=model, messages=[{"role": "system", "content": PERSONAS[st.session_state.persona]}, {"role": "user", "content": prompt}]).choices[0].message.content
             st.markdown(res)
         current_messages.append({"role": "assistant", "content": res})
-        try: supabase.table("Falcon").insert({"username": st.session_state.username, "role": "assistant", "content": res, "mode": mode}).execute()
-        except: pass
     st.rerun()
