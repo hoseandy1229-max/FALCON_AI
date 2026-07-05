@@ -15,7 +15,8 @@ cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", pas
 if not cookies.ready(): st.stop()
 
 if not os.path.exists("history"): os.makedirs("history")
-st.set_page_config(page_title="Falcon AI", layout="wide")
+# تنظیمات صفحه با لوگوی جدید
+st.set_page_config(page_title="Falcon AI", layout="wide", page_icon="A-modern-minimalist-vector-logo-design-of-a-sleek-cybernetic-falcon-head-geometric-sharp-lines-gl.png")
 
 # کلاینت Tavily
 tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
@@ -113,12 +114,12 @@ if not os.path.exists(user_dir): os.makedirs(user_dir)
 
 # سایدبار
 with st.sidebar:
+    st.image("A-modern-minimalist-vector-logo-design-of-a-sleek-cybernetic-falcon-head-geometric-sharp-lines-gl.png", use_column_width=True)
     st.write(f"کاربر: {st.session_state.username}")
     new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0 if st.session_state.bot_mode=="𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰" else 1)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     
-    # لیست مدل‌های اصلاح شده
     selected_model = st.selectbox("مدل:", [
         "llama-3.3-70b-versatile", 
         "qwen/qwen-2.5-72b-instruct", 
