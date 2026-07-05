@@ -66,8 +66,8 @@ def get_client_and_model(model_name):
 
 def get_long_term_memory(username, mode, n=10):
     try:
-        res = supabase.table("Falcon").select("role, content").eq("username", username).eq("mode", mode).order("id", desc=True).limit(n).execute()
-        return [{"role": i["role"], "content": i["content"]} for i in reversed(res.data)]
+        res = supabase.table("Falcon").select("role, content").eq("username", username).eq("mode", mode).order("id", desc=False).limit(n).execute()
+        return [{"role": i["role"], "content": i["content"]} for i in res.data]
     except: return []
 
 def search_web(query):
@@ -132,7 +132,7 @@ with st.sidebar:
                 users = list(set([u['username'] for u in res.data]))
                 sel_u = st.selectbox("کاربر:", users)
                 if sel_u:
-                    chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).execute().data
+                    chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).order("id", desc=False).execute().data
                     for msg in chat_data: st.write(f"**{msg['role']}:** {msg['content']}")
             except Exception as e: st.write("خطا:", e)
         elif admin_pwd: st.error("رمز غلط")
@@ -199,6 +199,7 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             st.image(res)
         else:
             client, model = get_client_and_model(selected_model)
+            # اینجا فقط آخرین پیام کاربر فرستاده میشه تا هذیان نگوید
             res = client.chat.completions.create(model=model, messages=[{"role": "user", "content": prompt}]).choices[0].message.content
             st.markdown(res)
         current_messages.append({"role": "assistant", "content": res})
