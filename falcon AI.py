@@ -64,12 +64,6 @@ def get_client_and_model(model_name):
     if "/" in model_name: return or_client, model_name
     return groq_client, model_name
 
-def get_long_term_memory(username, mode, n=10):
-    try:
-        res = supabase.table("Falcon").select("role, content").eq("username", username).eq("mode", mode).execute()
-        return [{"role": i["role"], "content": i["content"]} for i in res.data] if res.data else []
-    except: return []
-
 def analyze_image(uploaded_file, user_prompt, model_to_use):
     bytes_data = uploaded_file.getvalue()
     base64_image = base64.b64encode(bytes_data).decode('utf-8')
@@ -123,13 +117,14 @@ with st.sidebar:
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
             try:
-                res = supabase.table("Falcon").select("username").execute()
-                if res.data:
-                    users = list(set([u['username'] for u in res.data if u.get('username')]))
+                # خواندن کل جدول بدون فیلتر ستون برای رفع خطای PGRST125
+                res = supabase.table("Falcon").select("*").execute()
+                if res.data and len(res.data) > 0:
+                    users = list(set([u.get('username') for u in res.data if u.get('username')]))
                     sel_u = st.selectbox("کاربران لاگین کرده:", users)
                     if sel_u:
-                        chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).execute().data
-                        for msg in chat_data: st.write(f"**{msg['role']}:** {msg['content']}")
+                        for msg in res.data:
+                            if msg.get('username') == sel_u: st.write(f"**{msg.get('role')}:** {msg.get('content')}")
                 else: st.write("دیتا خالی است")
             except Exception as e: st.write(f"خطا در پنل: {e}")
         elif admin_pwd: st.error("رمز غلط")
