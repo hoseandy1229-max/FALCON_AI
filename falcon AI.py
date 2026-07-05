@@ -56,12 +56,17 @@ vision_model_options = {
     "Qwen VL": "qwen/qwen-2-vl-72b-instruct", "Pixtral": "mistralai/pixtral-12b"
 }
 
+def get_client_and_model(model_name):
+    if "/" in model_name: return or_client, model_name
+    return groq_client, model_name
+
 def get_long_term_memory(user_dir, n=3):
     memory = []
     files = sorted([f for f in os.listdir(user_dir) if f.endswith(".json")], reverse=True)
     for f in files[:n]:
         with open(os.path.join(user_dir, f), 'r', encoding='utf-8') as file:
-            memory.extend(json.load(file))
+            try: memory.extend(json.load(file))
+            except: pass
     return memory[-10:]
 
 def search_web(query):
@@ -113,12 +118,12 @@ with st.sidebar:
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     
-    # لیست کامل مدل‌ها بدون تداخل و ایمن
+    # لیست نهایی و تست شده
     selected_model = st.selectbox("مدل:", [
         "llama-3.3-70b-versatile", 
-        "mixtral-8x7b-32768", 
         "qwen/qwen-2.5-72b-instruct", 
-        "meta-llama/llama-3.1-70b-instruct"
+        "gryphe/mythomax-l2-13b",
+        "nousresearch/nous-hermes-llama2-13b"
     ])
 
     with st.expander("📜 تاریخچه گفت و گوها"):
@@ -188,14 +193,13 @@ elif mode == "👁️ تحلیل عکس":
     model_key = vision_model_options[model_name]
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
 
-# نمایش پیام‌ها با فیلتر مود
+# نمایش پیام‌ها
 for i, msg in enumerate(current_messages):
     if msg.get("mode", "💬 چت عادی") != mode: continue
     av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
     with st.chat_message(msg["role"], avatar=av):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
-
         if msg["role"] == "assistant" and msg.get("type") != "image_gen":
             col1, col2 = st.columns([0.5, 0.5])
             with col1: 
@@ -223,16 +227,10 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 memory = get_long_term_memory(user_dir)
                 search_results = search_web(prompt)
                 sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه: {str(memory)[:500]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
-                
                 clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
                 messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
-                
-                # بررسی و هدایتِ امن و تفکیک شده پیام به کلاینت مناسب
-                if "/" in selected_model:
-                    res = or_client.chat.completions.create(model=selected_model, messages=messages_to_send, temperature=0.2).choices[0].message.content
-                else:
-                    res = groq_client.chat.completions.create(model=selected_model, messages=messages_to_send, temperature=0.2).choices[0].message.content
-                    
+                client, model = get_client_and_model(selected_model)
+                res = client.chat.completions.create(model=model, messages=messages_to_send, temperature=0.2).choices[0].message.content
                 st.markdown(res)
             current_messages.append({"role": "assistant", "content": res, "mode": mode})
     
