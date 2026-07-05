@@ -9,12 +9,15 @@ import os
 from datetime import datetime
 from streamlit_cookies_manager import EncryptedCookieManager
 from tavily import TavilyClient
+from supabase import create_client
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", password="some_secret_password")
 if not cookies.ready(): st.stop()
 
-if not os.path.exists("history"): os.makedirs("history")
+# اتصال به دیتابیس Supabase
+supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+
 # تنظیمات صفحه با نام جدید فایل (logo.png)
 st.set_page_config(page_title="Falcon AI", layout="wide", page_icon="logo.png")
 
@@ -61,14 +64,11 @@ def get_client_and_model(model_name):
     if "/" in model_name: return or_client, model_name
     return groq_client, model_name
 
-def get_long_term_memory(user_dir, n=3):
-    memory = []
-    files = sorted([f for f in os.listdir(user_dir) if f.endswith(".json")], reverse=True)
-    for f in files[:n]:
-        with open(os.path.join(user_dir, f), 'r', encoding='utf-8') as file:
-            try: memory.extend(json.load(file))
-            except: pass
-    return memory[-10:]
+def get_long_term_memory(username, n=10):
+    try:
+        res = supabase.table("chats").select("*").eq("username", username).order("created_at", desc=True).limit(n).execute()
+        return [{"role": i["role"], "content": i["content"]} for i in reversed(res.data)]
+    except: return []
 
 def search_web(query):
     if not query or query.strip() == "": return []
@@ -109,48 +109,26 @@ if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝑨𝑳
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 if "user_pref" not in st.session_state: st.session_state.user_pref = ""
 
-user_dir = f"history/{st.session_state.username}"
-if not os.path.exists(user_dir): os.makedirs(user_dir)
-
 # سایدبار
 with st.sidebar:
-    # نمایش لوگو با نام جدید (logo.png)
     st.image("logo.png", use_column_width=True)
     st.write(f"کاربر: {st.session_state.username}")
     new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0 if st.session_state.bot_mode=="𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰" else 1)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     
-    selected_model = st.selectbox("مدل:", [
-        "llama-3.3-70b-versatile", 
-        "qwen/qwen-2.5-72b-instruct", 
-        "gryphe/mythomax-l2-13b",
-        "mistralai/mistral-small-24b-instruct-2501"
-    ])
+    selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"])
 
     with st.expander("📜 تاریخچه گفت و گوها"):
-        history_files = sorted([f for f in os.listdir(user_dir) if f.endswith(".json")], reverse=True)
-        for f in history_files:
-            if st.button(f, key=f"hist_{f}"):
-                with open(os.path.join(user_dir, f), 'r') as file:
-                    data = json.load(file)
-                    if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = data
-                    else: st.session_state.messages_falcon = data
-                st.rerun()
         if st.button("➕ شروع گفت و گوی جدید"):
             if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
             else: st.session_state.messages_falcon = []
             st.rerun()
+        st.write("تاریخچه اکنون در دیتابیس ذخیره می‌شود.")
 
     with st.expander(" 🔒 پنل مالکیت"):
         admin_pwd = st.text_input("رمز:", type="password")
-        if admin_pwd == "admin123":
-            sel_u = st.selectbox("کاربر:", os.listdir("history/"))
-            if sel_u:
-                sel_f = st.selectbox("چت:", os.listdir(f"history/{sel_u}"))
-                if sel_f and st.button("مشاهده"):
-                    with open(f"history/{sel_u}/{sel_f}", 'r') as file:
-                        for msg in json.load(file): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
+        if admin_pwd == "admin123": st.write("دسترسی به دیتابیس فعال است.")
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
@@ -190,6 +168,7 @@ if mode == "📝 برنامه‌نویسی":
             resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system", "content": system_msg}, {"role":"user", "content": code_input}]).choices[0].message.content
             st.code(resp, language=lang_dest if btn_trans else lang_src)
             current_messages.append({"role": "assistant", "content": f"**{task} خروجی:**\n\n{resp}", "mode": "📝 برنامه‌نویسی"})
+            supabase.table("chats").insert({"username": st.session_state.username, "role": "assistant", "content": resp, "mode": mode}).execute()
 elif mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
     model_key = vision_model_options[model_name]
@@ -202,15 +181,10 @@ for i, msg in enumerate(current_messages):
     with st.chat_message(msg["role"], avatar=av):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
-        if msg["role"] == "assistant" and msg.get("type") != "image_gen":
-            col1, col2 = st.columns([0.5, 0.5])
-            with col1: 
-                if st.button("👍", key=f"like_{i}"): st.session_state.user_pref += f" [لایک: {msg['content'][:15]}]"
-            with col2: 
-                if st.button("👎", key=f"dislike_{i}"): st.session_state.user_pref += f" [دیس: {msg['content'][:15]}]"
 
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     current_messages.append({"role": "user", "content": prompt, "mode": mode})
+    supabase.table("chats").insert({"username": st.session_state.username, "role": "user", "content": prompt, "mode": mode}).execute()
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
         if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
@@ -218,15 +192,17 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 res = analyze_image(uploaded_file, prompt, model_key)
                 st.markdown(res)
             current_messages.append({"role": "assistant", "content": res, "mode": mode})
+            supabase.table("chats").insert({"username": st.session_state.username, "role": "assistant", "content": res, "mode": mode}).execute()
         elif mode == "🎨 تولید تصویر":
             with st.status("در حال تولید تصویر...", expanded=True) as status:
                 tr_prompt = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"Translate to english, output ONLY the prompt"}, {"role":"user","content":prompt}]).choices[0].message.content
                 url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(tr_prompt)}?seed={random.randint(1,9999)}"
                 st.image(url)
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
+            supabase.table("chats").insert({"username": st.session_state.username, "role": "assistant", "content": url, "mode": mode}).execute()
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
-                memory = get_long_term_memory(user_dir)
+                memory = get_long_term_memory(st.session_state.username)
                 search_results = search_web(prompt)
                 sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه: {str(memory)[:500]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
                 clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
@@ -235,7 +211,5 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 res = client.chat.completions.create(model=model, messages=messages_to_send, temperature=0.2).choices[0].message.content
                 st.markdown(res)
             current_messages.append({"role": "assistant", "content": res, "mode": mode})
-    
-    fname = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(os.path.join(user_dir, fname), 'w', encoding='utf-8') as file: json.dump(current_messages, file)
+            supabase.table("chats").insert({"username": st.session_state.username, "role": "assistant", "content": res, "mode": mode}).execute()
     st.rerun()
