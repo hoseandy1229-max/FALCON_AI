@@ -114,11 +114,14 @@ with st.sidebar:
         admin_pwd = st.text_input("رمز ورود:", type="password")
         if admin_pwd == "admin123":
             all_files = [f for f in os.listdir("history") if f.endswith(".json")]
-            users = list(set([f.replace(".json", "") for f in all_files]))
+            users = [f.replace(".json", "") for f in all_files]
             selected_user = st.selectbox("انتخاب کاربر:", users)
             if selected_user:
                 with st.expander(f"چت‌های {selected_user}"):
-                    with open(f"history/{selected_user}.json", "r") as f: st.json(json.load(f))
+                    with open(f"history/{selected_user}.json", "r") as f:
+                        chat_history = json.load(f)
+                        for msg in chat_history:
+                            with st.chat_message(msg["role"]): st.markdown(msg["content"])
         elif admin_pwd: st.error("رمز عبور اشتباه است!")
 
 # --- رمز بخش خصوصی ---
