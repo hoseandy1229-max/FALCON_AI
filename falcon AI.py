@@ -15,11 +15,12 @@ from supabase import create_client
 cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", password="some_secret_password")
 if not cookies.ready(): st.stop()
 
-# اتصال به دیتابیس Supabase
-supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-
+if not os.path.exists("history"): os.makedirs("history")
 # تنظیمات صفحه با نام جدید فایل (logo.png)
 st.set_page_config(page_title="Falcon AI", layout="wide", page_icon="logo.png")
+
+# اتصال به دیتابیس Supabase
+supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 # کلاینت Tavily
 tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
@@ -65,10 +66,8 @@ def get_client_and_model(model_name):
     return groq_client, model_name
 
 def get_long_term_memory(username, n=10):
-    try:
-        res = supabase.table("chats").select("*").eq("username", username).order("created_at", desc=True).limit(n).execute()
-        return [{"role": i["role"], "content": i["content"]} for i in reversed(res.data)]
-    except: return []
+    res = supabase.table("chats").select("role, content").eq("username", username).order("id", desc=True).limit(n).execute()
+    return [{"role": i["role"], "content": i["content"]} for i in reversed(res.data)]
 
 def search_web(query):
     if not query or query.strip() == "": return []
@@ -117,18 +116,25 @@ with st.sidebar:
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     
-    selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"])
+    selected_model = st.selectbox("مدل:", [
+        "llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"
+    ])
 
     with st.expander("📜 تاریخچه گفت و گوها"):
         if st.button("➕ شروع گفت و گوی جدید"):
             if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
             else: st.session_state.messages_falcon = []
             st.rerun()
-        st.write("تاریخچه اکنون در دیتابیس ذخیره می‌شود.")
+        st.write("تاریخچه از دیتابیس بارگذاری می‌شود.")
 
     with st.expander(" 🔒 پنل مالکیت"):
         admin_pwd = st.text_input("رمز:", type="password")
-        if admin_pwd == "admin123": st.write("دسترسی به دیتابیس فعال است.")
+        if admin_pwd == "admin123":
+            users = supabase.table("chats").select("username").execute().data
+            sel_u = st.selectbox("کاربر:", list(set([u['username'] for u in users])))
+            if sel_u:
+                chat_data = supabase.table("chats").select("role, content").eq("username", sel_u).execute().data
+                for msg in chat_data: st.write(f"**{msg['role']}:** {msg['content']}")
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
@@ -167,7 +173,7 @@ if mode == "📝 برنامه‌نویسی":
         with st.spinner(f"در حال {task}..."):
             resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system", "content": system_msg}, {"role":"user", "content": code_input}]).choices[0].message.content
             st.code(resp, language=lang_dest if btn_trans else lang_src)
-            current_messages.append({"role": "assistant", "content": f"**{task} خروجی:**\n\n{resp}", "mode": "📝 برنامه‌نویسی"})
+            current_messages.append({"role": "assistant", "content": f"**{task} خروجی:**\n\n{resp}"})
             supabase.table("chats").insert({"username": st.session_state.username, "role": "assistant", "content": resp, "mode": mode}).execute()
 elif mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
@@ -176,14 +182,13 @@ elif mode == "👁️ تحلیل عکس":
 
 # نمایش پیام‌ها
 for i, msg in enumerate(current_messages):
-    if msg.get("mode", "💬 چت عادی") != mode: continue
     av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
     with st.chat_message(msg["role"], avatar=av):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
 
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
-    current_messages.append({"role": "user", "content": prompt, "mode": mode})
+    current_messages.append({"role": "user", "content": prompt})
     supabase.table("chats").insert({"username": st.session_state.username, "role": "user", "content": prompt, "mode": mode}).execute()
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
@@ -191,14 +196,14 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             with st.status("در حال تجزیه و تحلیل...", expanded=True) as status:
                 res = analyze_image(uploaded_file, prompt, model_key)
                 st.markdown(res)
-            current_messages.append({"role": "assistant", "content": res, "mode": mode})
+            current_messages.append({"role": "assistant", "content": res})
             supabase.table("chats").insert({"username": st.session_state.username, "role": "assistant", "content": res, "mode": mode}).execute()
         elif mode == "🎨 تولید تصویر":
             with st.status("در حال تولید تصویر...", expanded=True) as status:
                 tr_prompt = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"Translate to english, output ONLY the prompt"}, {"role":"user","content":prompt}]).choices[0].message.content
                 url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(tr_prompt)}?seed={random.randint(1,9999)}"
                 st.image(url)
-            current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
+            current_messages.append({"role": "assistant", "content": url, "type": "image_gen"})
             supabase.table("chats").insert({"username": st.session_state.username, "role": "assistant", "content": url, "mode": mode}).execute()
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
@@ -210,6 +215,6 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 client, model = get_client_and_model(selected_model)
                 res = client.chat.completions.create(model=model, messages=messages_to_send, temperature=0.2).choices[0].message.content
                 st.markdown(res)
-            current_messages.append({"role": "assistant", "content": res, "mode": mode})
+            current_messages.append({"role": "assistant", "content": res})
             supabase.table("chats").insert({"username": st.session_state.username, "role": "assistant", "content": res, "mode": mode}).execute()
     st.rerun()
