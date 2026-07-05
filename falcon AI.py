@@ -129,12 +129,14 @@ with st.sidebar:
         if admin_pwd == "admin123":
             try:
                 res = supabase.table("Falcon").select("username").execute()
-                users = list(set([u['username'] for u in res.data])) if res.data else []
-                sel_u = st.selectbox("کاربر:", users)
-                if sel_u:
-                    chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).execute().data
-                    for msg in chat_data: st.write(f"**{msg['role']}:** {msg['content']}")
-            except Exception: st.write("دیتا خالی است.")
+                if res.data:
+                    users = list(set([u['username'] for u in res.data]))
+                    sel_u = st.selectbox("کاربران لاگین کرده:", users)
+                    if sel_u:
+                        chat_data = supabase.table("Falcon").select("role, content").eq("username", sel_u).execute().data
+                        for msg in chat_data: st.write(f"**{msg['role']}:** {msg['content']}")
+                else: st.write("هنوز دیتایی ثبت نشده.")
+            except Exception: st.write("خطا در خواندن داده.")
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
