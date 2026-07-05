@@ -115,18 +115,20 @@ with st.sidebar:
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "meta-llama/llama-3.1-405b", "qwen/qwen-2.5-72b-instruct"])
 
-    st.subheader("تاریخچه گفت و گو")
-    for f in [f for f in os.listdir(user_dir) if f.endswith(".json")]:
-        if st.button(f):
-            with open(os.path.join(user_dir, f), 'r') as file:
-                data = json.load(file)
-                if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = data
-                else: st.session_state.messages_falcon = data
+    with st.expander("📜 تاریخچه گفت و گوها"):
+        history_files = sorted([f for f in os.listdir(user_dir) if f.endswith(".json")], reverse=True)
+        for f in history_files:
+            if st.button(f, key=f"hist_{f}"):
+                with open(os.path.join(user_dir, f), 'r') as file:
+                    data = json.load(file)
+                    if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = data
+                    else: st.session_state.messages_falcon = data
+                st.rerun()
+        if st.button("➕ شروع گفت و گوی جدید"):
+            if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
+            else: st.session_state.messages_falcon = []
             st.rerun()
-    if st.button("گفت و گو جدید"):
-        if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
-        else: st.session_state.messages_falcon = []
-        st.rerun()
+
     with st.expander(" 🔒 پنل مالکیت"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
@@ -157,7 +159,6 @@ with st.container():
 model_key = None
 uploaded_file = None
 
-# 1. منطق برنامه‌نویسی را اینجا بیرون از chat_input قرار دادیم
 if mode == "📝 برنامه‌نویسی":
     st.subheader("💻 Falcon Code Studio")
     code_input = st.text_area("کد یا درخواست خود را وارد کنید:", height=200)
