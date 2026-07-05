@@ -200,21 +200,16 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             col_l1, col_l2 = st.columns(2)
             with col_l1: lang_src = st.selectbox("زبان مبدأ:", ["python", "javascript", "cpp", "java", "html", "css"])
             with col_l2: lang_dest = st.selectbox("تبدیل به:", ["javascript", "python", "java", "cpp", "csharp", "php"])
-            
             col1, col2, col3, col4 = st.columns(4)
             with col1: btn_fix = st.button("🛠️ دیباگ")
             with col2: btn_test = st.button("🧪 تولید Unit Test")
             with col3: btn_gen = st.button("✨ تولید کد")
             with col4: btn_trans = st.button("🔄 تبدیل زبان")
-            
             if btn_fix or btn_test or btn_gen or btn_trans:
                 task = "اصلاح کد" if btn_fix else "تولید Unit Test" if btn_test else "نوشتن کد" if btn_gen else f"تبدیل از {lang_src} به {lang_dest}"
                 system_msg = f"تو یک متخصص برنامه‌نویسی هستی. وظیفه تو {task} است. فقط کد خروجی بده."
                 with st.spinner(f"در حال {task}..."):
-                    resp = groq_client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=[{"role":"system", "content": system_msg}, {"role":"user", "content": code_input}]
-                    ).choices[0].message.content
+                    resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system", "content": system_msg}, {"role":"user", "content": code_input}]).choices[0].message.content
                     st.code(resp, language=lang_dest if btn_trans else lang_src)
                     current_messages.append({"role": "assistant", "content": f"**{task} خروجی:**\n\n{resp}"})
         else:
