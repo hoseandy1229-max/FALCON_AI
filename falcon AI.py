@@ -118,12 +118,12 @@ with st.sidebar:
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
     
-    # لیست نهایی و تست شده
+    # لیست مدل‌های اصلاح شده
     selected_model = st.selectbox("مدل:", [
         "llama-3.3-70b-versatile", 
         "qwen/qwen-2.5-72b-instruct", 
         "gryphe/mythomax-l2-13b",
-        "nousresearch/nous-hermes-llama2-13b"
+        "mistralai/mistral-small-24b-instruct-2501"
     ])
 
     with st.expander("📜 تاریخچه گفت و گوها"):
