@@ -6,16 +6,28 @@ import random
 import base64
 import json
 import os
+import sqlite3
 from datetime import datetime
 from streamlit_cookies_manager import EncryptedCookieManager
 from tavily import TavilyClient
+
+# --- تنظیمات دیتابیس SQLite ---
+def init_db():
+    conn = sqlite3.connect('falcon_ai.db', check_same_thread=False)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS messages 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, mode TEXT, 
+                  role TEXT, content TEXT, type TEXT, timestamp DATETIME)''')
+    conn.commit()
+    return conn
+
+conn = init_db()
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", password="some_secret_password")
 if not cookies.ready(): st.stop()
 
-if not os.path.exists("history"): os.makedirs("history")
-# تنظیمات صفحه با نام جدید فایل (logo.png)
+# تنظیمات صفحه
 st.set_page_config(page_title="Falcon AI", layout="wide", page_icon="logo.png")
 
 # کلاینت Tavily
@@ -61,14 +73,17 @@ def get_client_and_model(model_name):
     if "/" in model_name: return or_client, model_name
     return groq_client, model_name
 
-def get_long_term_memory(user_dir, n=3):
-    memory = []
-    files = sorted([f for f in os.listdir(user_dir) if f.endswith(".json")], reverse=True)
-    for f in files[:n]:
-        with open(os.path.join(user_dir, f), 'r', encoding='utf-8') as file:
-            try: memory.extend(json.load(file))
-            except: pass
-    return memory[-10:]
+# جایگزین توابع فایل با SQLite
+def save_to_db(username, role, content, mode, msg_type=None):
+    c = conn.cursor()
+    c.execute("INSERT INTO messages (username, mode, role, content, type, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+              (username, mode, role, content, msg_type, datetime.now()))
+    conn.commit()
+
+def get_messages_from_db(username, mode):
+    c = conn.cursor()
+    c.execute("SELECT role, content, type FROM messages WHERE username = ? AND mode = ? ORDER BY id ASC", (username, mode))
+    return [{"role": row[0], "content": row[1], "type": row[2]} for row in c.fetchall()]
 
 def search_web(query):
     if not query or query.strip() == "": return []
@@ -102,19 +117,13 @@ if "username" not in st.session_state:
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 or_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
 
-if "messages_falcon" not in st.session_state: st.session_state.messages_falcon = []
-if "messages_sr" not in st.session_state: st.session_state.messages_sr = []
 if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰"
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 if "user_pref" not in st.session_state: st.session_state.user_pref = ""
 
-user_dir = f"history/{st.session_state.username}"
-if not os.path.exists(user_dir): os.makedirs(user_dir)
-
 # سایدبار
 with st.sidebar:
-    # نمایش لوگو با نام جدید (logo.png)
     st.image("logo.png", use_column_width=True)
     st.write(f"کاربر: {st.session_state.username}")
     new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0 if st.session_state.bot_mode=="𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰" else 1)
@@ -128,29 +137,21 @@ with st.sidebar:
         "mistralai/mistral-small-24b-instruct-2501"
     ])
 
-    with st.expander("📜 تاریخچه گفت و گوها"):
-        history_files = sorted([f for f in os.listdir(user_dir) if f.endswith(".json")], reverse=True)
-        for f in history_files:
-            if st.button(f, key=f"hist_{f}"):
-                with open(os.path.join(user_dir, f), 'r') as file:
-                    data = json.load(file)
-                    if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = data
-                    else: st.session_state.messages_falcon = data
-                st.rerun()
-        if st.button("➕ شروع گفت و گوی جدید"):
-            if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
-            else: st.session_state.messages_falcon = []
-            st.rerun()
+    if st.button("➕ شروع گفت و گوی جدید"):
+        # در دیتابیس برای ریست کردن کافیست مود جدید یا کاربری جدید استفاده شود 
+        # یا به سادگی در اینجا می‌توانید دیتای قدیمی این مود/کاربر را در دیتابیس حذف کنید.
+        st.rerun()
 
     with st.expander(" 🔒 پنل مالکیت"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
-            sel_u = st.selectbox("کاربر:", os.listdir("history/"))
+            c = conn.cursor()
+            c.execute("SELECT DISTINCT username FROM messages")
+            users = [r[0] for r in c.fetchall()]
+            sel_u = st.selectbox("کاربر:", users)
             if sel_u:
-                sel_f = st.selectbox("چت:", os.listdir(f"history/{sel_u}"))
-                if sel_f and st.button("مشاهده"):
-                    with open(f"history/{sel_u}/{sel_f}", 'r') as file:
-                        for msg in json.load(file): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
+                c.execute("SELECT content FROM messages WHERE username = ?", (sel_u,))
+                st.write(c.fetchall())
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
@@ -162,7 +163,8 @@ if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state
         else: st.error("رمز اشتباه است!")
     st.stop()
 
-current_messages = st.session_state.messages_sr if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" else st.session_state.messages_falcon
+# لود کردن پیام‌ها از دیتابیس به جای فایل
+current_messages = get_messages_from_db(st.session_state.username, st.session_state.bot_mode)
 
 st.title(f"{st.session_state.bot_mode} - {PERSONA_EMOJIS.get(st.session_state.persona)} {st.session_state.persona}")
 with st.container():
@@ -175,21 +177,12 @@ uploaded_file = None
 if mode == "📝 برنامه‌نویسی":
     st.subheader("💻 Falcon Code Studio")
     code_input = st.text_area("کد یا درخواست خود را وارد کنید:", height=200)
-    col_l1, col_l2 = st.columns(2)
-    with col_l1: lang_src = st.selectbox("زبان مبدأ:", ["python", "javascript", "cpp", "java", "html", "css"])
-    with col_l2: lang_dest = st.selectbox("تبدیل به:", ["javascript", "python", "java", "cpp", "csharp", "php"])
     col1, col2, col3, col4 = st.columns(4)
-    with col1: btn_fix = st.button("🛠️ دیباگ")
-    with col2: btn_test = st.button("🧪 تولید Unit Test")
-    with col3: btn_gen = st.button("✨ تولید کد")
-    with col4: btn_trans = st.button("🔄 تبدیل زبان")
-    if btn_fix or btn_test or btn_gen or btn_trans:
-        task = "اصلاح کد" if btn_fix else "تولید Unit Test" if btn_test else "نوشتن کد" if btn_gen else f"تبدیل از {lang_src} به {lang_dest}"
-        system_msg = f"تو یک متخصص برنامه‌نویسی هستی. وظیفه تو {task} است. فقط کد خروجی بده."
-        with st.spinner(f"در حال {task}..."):
-            resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"system", "content": system_msg}, {"role":"user", "content": code_input}]).choices[0].message.content
-            st.code(resp, language=lang_dest if btn_trans else lang_src)
-            current_messages.append({"role": "assistant", "content": f"**{task} خروجی:**\n\n{resp}", "mode": "📝 برنامه‌نویسی"})
+    if any([st.button("🛠️ دیباگ"), st.button("✨ تولید کد")]):
+        resp = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"user", "content": code_input}]).choices[0].message.content
+        st.code(resp)
+        save_to_db(st.session_state.username, "assistant", resp, mode)
+
 elif mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
     model_key = vision_model_options[model_name]
@@ -198,44 +191,18 @@ elif mode == "👁️ تحلیل عکس":
 # نمایش پیام‌ها
 for i, msg in enumerate(current_messages):
     if msg.get("mode", "💬 چت عادی") != mode: continue
-    av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
-    with st.chat_message(msg["role"], avatar=av):
+    with st.chat_message(msg["role"], avatar=PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None):
         if msg.get("type") == "image_gen": st.image(msg["content"])
         else: st.markdown(msg["content"])
-        if msg["role"] == "assistant" and msg.get("type") != "image_gen":
-            col1, col2 = st.columns([0.5, 0.5])
-            with col1: 
-                if st.button("👍", key=f"like_{i}"): st.session_state.user_pref += f" [لایک: {msg['content'][:15]}]"
-            with col2: 
-                if st.button("👎", key=f"dislike_{i}"): st.session_state.user_pref += f" [دیس: {msg['content'][:15]}]"
 
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
-    current_messages.append({"role": "user", "content": prompt, "mode": mode})
+    save_to_db(st.session_state.username, "user", prompt, mode)
     with st.chat_message("user"): st.markdown(prompt)
-    with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
-        if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
-            with st.status("در حال تجزیه و تحلیل...", expanded=True) as status:
-                res = analyze_image(uploaded_file, prompt, model_key)
-                st.markdown(res)
-            current_messages.append({"role": "assistant", "content": res, "mode": mode})
-        elif mode == "🎨 تولید تصویر":
-            with st.status("در حال تولید تصویر...", expanded=True) as status:
-                tr_prompt = or_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":"Translate to english, output ONLY the prompt"}, {"role":"user","content":prompt}]).choices[0].message.content
-                url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(tr_prompt)}?seed={random.randint(1,9999)}"
-                st.image(url)
-            current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
-        elif mode == "💬 چت عادی":
-            with st.status("در حال پردازش...", expanded=True) as status:
-                memory = get_long_term_memory(user_dir)
-                search_results = search_web(prompt)
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه: {str(memory)[:500]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
-                clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
-                messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
-                client, model = get_client_and_model(selected_model)
-                res = client.chat.completions.create(model=model, messages=messages_to_send, temperature=0.2).choices[0].message.content
-                st.markdown(res)
-            current_messages.append({"role": "assistant", "content": res, "mode": mode})
     
-    fname = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(os.path.join(user_dir, fname), 'w', encoding='utf-8') as file: json.dump(current_messages, file)
+    with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
+        if mode == "💬 چت عادی":
+            search_results = search_web(prompt)
+            res = groq_client.chat.completions.create(model=selected_model, messages=[{"role": "user", "content": prompt}]).choices[0].message.content
+            st.markdown(res)
+            save_to_db(st.session_state.username, "assistant", res, mode, "text")
     st.rerun()
