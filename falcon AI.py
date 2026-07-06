@@ -15,13 +15,13 @@ from tavily import TavilyClient
 def init_db():
     conn = sqlite3.connect("falcon_ai.db", check_same_thread=False)
     c = conn.cursor()
-    # ایجاد جدول کاربران
     c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY)''')
-    # اضافه کردن ستون summary اگر وجود ندارد
-    try:
-        c.execute('''ALTER TABLE users ADD COLUMN summary TEXT''')
-    except sqlite3.OperationalError:
-        pass 
+    # اضافه کردن ستون‌های پروفایل
+    for col in ['summary', 'full_name', 'birth_date', 'interests']:
+        try:
+            c.execute(f'ALTER TABLE users ADD COLUMN {col} TEXT')
+        except sqlite3.OperationalError:
+            pass 
     c.execute('''CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, filename TEXT, messages TEXT)''')
     conn.commit()
     return conn
@@ -64,7 +64,7 @@ PERSONAS = {
 
 PERSONA_EMOJIS = {
     "دستیار (منظم)": "🤖", "دانا (دانشمند)": "🧬", "سارا (دوست‌داشتنی)": "🌸",
-    "استاد (سخت‌گیر)": "🎓", "شوخ (طناز)": "🤡", "فیلسوف (متفکر)": "🧠",
+    "استاد (سخت-گیر)": "🎓", "شوخ (طناز)": "🤡", "فیلسوف (متفکر)": "🧠",
     "نویسنده (خلاق)": "✍️", "کدنویس (منطقی)": "💻", "مربی (انگیزشی)": "🔥"
 }
 
@@ -112,18 +112,26 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
         except: continue
     return "خطا در تحلیل تصویر."
 
-# لاگین
+# لاگین هوشمند
 if "username" not in st.session_state:
     if "username" in cookies: st.session_state.username = cookies["username"]
     else:
         st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
         user_input = st.text_input("نام کاربری:")
-        if st.button("تایید"): 
-            st.session_state.username = user_input; cookies["username"] = user_input; cookies.save()
+        if user_input:
             c = conn.cursor()
-            c.execute("INSERT OR IGNORE INTO users (username, summary) VALUES (?, ?)", (user_input, ""))
-            conn.commit()
-            st.rerun()
+            c.execute("SELECT full_name FROM users WHERE username = ?", (user_input,))
+            if c.fetchone():
+                if st.button("ورود"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
+            else:
+                st.warning("خوش آمدی! لطفا اطلاعاتت را تکمیل کن:")
+                name = st.text_input("نام کامل:")
+                bday = st.date_input("تاریخ تولد:")
+                interests = st.text_input("علایق (با کاما جدا کن):")
+                if st.button("ثبت نام"):
+                    c.execute("INSERT INTO users (username, full_name, birth_date, interests, summary) VALUES (?, ?, ?, ?, ?)", (user_input, name, str(bday), interests, ""))
+                    conn.commit()
+                    st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
 
 # تنظیمات اصلی
@@ -273,14 +281,20 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
+                # دریافت اطلاعات کاربر برای تزریق به پرامپت
+                c = conn.cursor()
+                c.execute("SELECT full_name, birth_date, interests, summary FROM users WHERE username = ?", (st.session_state.username,))
+                u_info = c.fetchone()
+                info_str = f"نام کاربر: {u_info[0]}, تاریخ تولد: {u_info[1]}, علایق: {u_info[2]}"
+                st.session_state.memory_summary = u_info[3] or ""
+                
                 if len(current_messages) % 5 == 0:
                     st.session_state.memory_summary = update_memory_summary(current_messages, st.session_state.memory_summary)
-                    c = conn.cursor()
                     c.execute("UPDATE users SET summary = ? WHERE username = ?", (st.session_state.memory_summary, st.session_state.username))
                     conn.commit()
                 memory = get_long_term_memory(st.session_state.username)
                 search_results = search_web(prompt)
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه اصلی: {st.session_state.memory_summary}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. اطلاعات کاربر: {info_str}. حافظه اصلی: {st.session_state.memory_summary}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
                 clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
                 messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
                 client, model = get_client_and_model(selected_model)
