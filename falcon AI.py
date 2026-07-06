@@ -178,17 +178,10 @@ with st.sidebar:
             st.rerun()
 
     with st.expander(" 🔒 پنل مالکیت"):
-    admin_pwd = st.text_input("رمز:", type="password", key="admin_pass_input")
-    
-    # اول چک می‌کنیم رمز خالی نباشد، بعد با Secrets مقایسه می‌کنیم
-    if admin_pwd and admin_pwd == st.secrets.get("ADMIN_PASSWORD"):
-        c = conn.cursor()
-        st.success("پنل مدیریت باز شد!")
-        # ادامه لاجیک پنل مالکیت...
-
-        # ادامه لاجیک پنل مالکیت شما...
-        st.success("پنل مدیریت باز شد!")
-
+        admin_pwd = st.text_input("رمز:", type="password", key="admin_pass_input")
+        if admin_pwd and admin_pwd == st.secrets.get("ADMIN_PASSWORD"):
+            c = conn.cursor()
+            st.success("پنل مدیریت باز شد!")
             c.execute("SELECT username FROM users UNION SELECT DISTINCT username FROM chat_history")
             all_users = [row[0] for row in c.fetchall()]
             sel_u = st.selectbox("کاربر:", all_users)
@@ -206,7 +199,8 @@ with st.sidebar:
                     if st.button("مشاهده محتوا"):
                         c.execute("SELECT messages FROM chat_history WHERE username = ? AND filename = ?", (sel_u, sel_f))
                         for msg in json.loads(c.fetchone()[0]): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
-        elif admin_pwd: st.error("رمز غلط")
+        elif admin_pwd: 
+            st.error("رمز غلط")
 
 # رمز SR BOT
 if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state.auth_sr:
