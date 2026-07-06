@@ -131,7 +131,9 @@ if "username" not in st.session_state:
                     if name and bday:
                         c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
                                   (name, bday, interests, st.session_state.username))
-                        conn.commit(); st.rerun()
+                        conn.commit()
+                        cookies["username"] = st.session_state.username; cookies.save()
+                        st.rerun()
                     else: st.error("لطفاً نام و تاریخ تولد را وارد کنید.")
             st.stop()
     else:
