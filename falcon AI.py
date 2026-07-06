@@ -15,7 +15,13 @@ from tavily import TavilyClient
 def init_db():
     conn = sqlite3.connect("falcon_ai.db", check_same_thread=False)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, summary TEXT)''')
+    # ایجاد جدول کاربران
+    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY)''')
+    # اضافه کردن ستون summary اگر وجود ندارد
+    try:
+        c.execute('''ALTER TABLE users ADD COLUMN summary TEXT''')
+    except sqlite3.OperationalError:
+        pass 
     c.execute('''CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, filename TEXT, messages TEXT)''')
     conn.commit()
     return conn
