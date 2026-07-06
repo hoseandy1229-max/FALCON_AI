@@ -178,11 +178,14 @@ with st.sidebar:
             st.rerun()
 
     with st.expander(" 🔒 پنل مالکیت"):
-    admin_pwd = st.text_input("رمز:", type="password")
+    admin_pwd = st.text_input("رمز:", type="password", key="admin_pass_input")
     
-    # فراخوانی رمز از فایل امن
-    if admin_pwd == st.secrets["ADMIN_PASSWORD"]:
+    # اول چک می‌کنیم رمز خالی نباشد، بعد با Secrets مقایسه می‌کنیم
+    if admin_pwd and admin_pwd == st.secrets.get("ADMIN_PASSWORD"):
         c = conn.cursor()
+        st.success("پنل مدیریت باز شد!")
+        # ادامه لاجیک پنل مالکیت...
+
         # ادامه لاجیک پنل مالکیت شما...
         st.success("پنل مدیریت باز شد!")
 
