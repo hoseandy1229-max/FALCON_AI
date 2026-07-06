@@ -114,38 +114,42 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
 
 # لاگین هوشمند
 if "username" not in st.session_state:
-    if "username" in cookies: st.session_state.username = cookies["username"]
+    if "username" in cookies: 
+        st.session_state.username = cookies["username"]
 
-    if "username" in st.session_state:
-        c = conn.cursor()
-        c.execute("SELECT profile_version FROM users WHERE username = ?", (st.session_state.username,))
-        row = c.fetchone()
-        if not row or row[0] != "1":
-            st.warning("لطفاً برای بهبود تجربه کاربری، اطلاعات خود را یک‌بار تکمیل کنید:")
-            with st.form("profile_form"):
-                name = st.text_input("نام کامل:")
-                bday = st.text_input("تاریخ تولد (مثال: ۱۳۸۹/۰۵/۱۰):")
-                interests = st.text_area("علایق (هر کدام را با ویرگول جدا کنید):")
-                submit = st.form_submit_button("تکمیل و ورود")
-                if submit:
-                    if name and bday:
-                        c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
-                                  (name, bday, interests, st.session_state.username))
-                        conn.commit()
-                        cookies["username"] = st.session_state.username; cookies.save()
-                        st.rerun()
-                    else: st.error("لطفاً نام و تاریخ تولد را وارد کنید.")
-            st.stop()
-    else:
-        st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
-        user_input = st.text_input("نام کاربری:")
-        if st.button("تایید نام کاربری"):
-            if user_input:
-                c = conn.cursor()
-                c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
-                conn.commit()
-                st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
+if "username" in st.session_state:
+    c = conn.cursor()
+    c.execute("SELECT profile_version FROM users WHERE username = ?", (st.session_state.username,))
+    row = c.fetchone()
+    
+    if not row or row[0] != "1":
+        st.warning("لطفاً برای بهبود تجربه کاربری، اطلاعات خود را یک‌بار تکمیل کنید:")
+        with st.form("profile_form"):
+            name = st.text_input("نام کامل:")
+            bday = st.text_input("تاریخ تولد (مثال: ۱۳۸۹/۰۵/۱۰):")
+            interests = st.text_area("علایق (هر کدام را با ویرگول جدا کنید):")
+            submit = st.form_submit_button("تکمیل و ورود")
+            if submit:
+                if name and bday:
+                    c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
+                              (name, bday, interests, st.session_state.username))
+                    conn.commit()
+                    st.rerun()
+                else: st.error("لطفاً نام و تاریخ تولد را وارد کنید.")
         st.stop()
+else:
+    st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
+    user_input = st.text_input("نام کاربری:")
+    if st.button("تایید نام کاربری"):
+        if user_input:
+            c = conn.cursor()
+            c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
+            conn.commit()
+            st.session_state.username = user_input
+            cookies["username"] = user_input
+            cookies.save()
+            st.rerun()
+    st.stop()
 
 # تنظیمات اصلی
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
