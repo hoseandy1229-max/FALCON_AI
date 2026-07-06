@@ -165,12 +165,19 @@ with st.sidebar:
             all_users = [row[0] for row in c.fetchall()]
             sel_u = st.selectbox("کاربر:", all_users)
             if sel_u:
+                if st.button(f"🚫 حذف کامل کاربر: {sel_u}"):
+                    c.execute("DELETE FROM users WHERE username = ?", (sel_u,))
+                    c.execute("DELETE FROM chat_history WHERE username = ?", (sel_u,))
+                    conn.commit(); st.rerun()
                 c.execute("SELECT DISTINCT filename FROM chat_history WHERE username = ?", (sel_u,))
-                files = [row[0] for row in c.fetchall()]
-                sel_f = st.selectbox("چت:", files)
-                if sel_f and st.button("مشاهده"):
-                    c.execute("SELECT messages FROM chat_history WHERE username = ? AND filename = ?", (sel_u, sel_f))
-                    for msg in json.loads(c.fetchone()[0]): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
+                sel_f = st.selectbox("چت:", [row[0] for row in c.fetchall()])
+                if sel_f:
+                    if st.button(f"🗑️ حذف چت: {sel_f}"):
+                        c.execute("DELETE FROM chat_history WHERE username = ? AND filename = ?", (sel_u, sel_f))
+                        conn.commit(); st.rerun()
+                    if st.button("مشاهده محتوا"):
+                        c.execute("SELECT messages FROM chat_history WHERE username = ? AND filename = ?", (sel_u, sel_f))
+                        for msg in json.loads(c.fetchone()[0]): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
