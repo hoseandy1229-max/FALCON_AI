@@ -178,9 +178,14 @@ with st.sidebar:
             st.rerun()
 
     with st.expander(" 🔒 پنل مالکیت"):
-        admin_pwd = st.text_input("رمز:", type="password")
-        if admin_pwd == "admin123":
-            c = conn.cursor()
+    admin_pwd = st.text_input("رمز:", type="password")
+    
+    # فراخوانی رمز از فایل امن
+    if admin_pwd == st.secrets["ADMIN_PASSWORD"]:
+        c = conn.cursor()
+        # ادامه لاجیک پنل مالکیت شما...
+        st.success("پنل مدیریت باز شد!")
+
             c.execute("SELECT username FROM users UNION SELECT DISTINCT username FROM chat_history")
             all_users = [row[0] for row in c.fetchall()]
             sel_u = st.selectbox("کاربر:", all_users)
