@@ -11,10 +11,11 @@ from datetime import datetime
 from streamlit_cookies_manager import EncryptedCookieManager
 from tavily import TavilyClient
 
-# اتصال به دیتابیس SQLite
+# مدیریت دیتابیس
 def init_db():
     conn = sqlite3.connect("falcon_ai.db", check_same_thread=False)
     c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY)''')
     c.execute('''CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, filename TEXT, messages TEXT)''')
     conn.commit()
     return conn
@@ -71,6 +72,16 @@ def get_client_and_model(model_name):
     if "/" in model_name: return or_client, model_name
     return groq_client, model_name
 
+def get_long_term_memory(username, n=3):
+    c = conn.cursor()
+    c.execute("SELECT messages FROM chat_history WHERE username = ? ORDER BY id DESC LIMIT ?", (username, n))
+    results = c.fetchall()
+    memory = []
+    for row in results:
+        try: memory.extend(json.loads(row[0]))
+        except: pass
+    return memory[-10:]
+
 def search_web(query):
     if not query or query.strip() == "": return []
     try: return tavily.search(query=query, search_depth="advanced")["results"]
@@ -96,7 +107,12 @@ if "username" not in st.session_state:
     else:
         st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
         user_input = st.text_input("نام کاربری:")
-        if st.button("تایید"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
+        if st.button("تایید"): 
+            st.session_state.username = user_input; cookies["username"] = user_input; cookies.save()
+            c = conn.cursor()
+            c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
+            conn.commit()
+            st.rerun()
         st.stop()
 
 # تنظیمات اصلی
@@ -145,7 +161,7 @@ with st.sidebar:
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
             c = conn.cursor()
-            c.execute("SELECT DISTINCT username FROM chat_history")
+            c.execute("SELECT username FROM users")
             sel_u = st.selectbox("کاربر:", [row[0] for row in c.fetchall()])
             if sel_u:
                 c.execute("SELECT DISTINCT filename FROM chat_history WHERE username = ?", (sel_u,))
@@ -228,8 +244,9 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
+                memory = get_long_term_memory(st.session_state.username)
                 search_results = search_web(prompt)
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه: {str(memory)[:500]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
                 clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
                 messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
                 client, model = get_client_and_model(selected_model)
