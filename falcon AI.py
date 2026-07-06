@@ -125,6 +125,7 @@ if "auth_sr" not in st.session_state: st.session_state.auth_sr = False
 if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰"
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 if "user_pref" not in st.session_state: st.session_state.user_pref = ""
+if "curr_chat" not in st.session_state: st.session_state.curr_chat = None
 
 # سایدبار
 with st.sidebar:
@@ -147,12 +148,14 @@ with st.sidebar:
         history_files = [row[0] for row in c.fetchall()]
         for f in history_files:
             if st.button(f, key=f"hist_{f}"):
+                st.session_state.curr_chat = f
                 c.execute("SELECT messages FROM chat_history WHERE username = ? AND filename = ?", (st.session_state.username, f))
                 data = json.loads(c.fetchone()[0])
                 if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = data
                 else: st.session_state.messages_falcon = data
                 st.rerun()
         if st.button("➕ شروع گفت و گوی جدید"):
+            st.session_state.curr_chat = None
             if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
             else: st.session_state.messages_falcon = []
             st.rerun()
@@ -263,8 +266,9 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 st.markdown(res)
             current_messages.append({"role": "assistant", "content": res, "mode": mode})
     
-    fname = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    if not st.session_state.curr_chat:
+        st.session_state.curr_chat = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     c = conn.cursor()
-    c.execute("INSERT INTO chat_history (username, filename, messages) VALUES (?, ?, ?)", (st.session_state.username, fname, json.dumps(current_messages)))
+    c.execute("INSERT OR REPLACE INTO chat_history (username, filename, messages) VALUES (?, ?, ?)", (st.session_state.username, st.session_state.curr_chat, json.dumps(current_messages)))
     conn.commit()
     st.rerun()
