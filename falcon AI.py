@@ -115,29 +115,32 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
 # لاگین هوشمند
 if "username" not in st.session_state:
     if "username" in cookies: st.session_state.username = cookies["username"]
-    
+
     if "username" in st.session_state:
         c = conn.cursor()
         c.execute("SELECT profile_version FROM users WHERE username = ?", (st.session_state.username,))
         row = c.fetchone()
         if not row or row[0] != "1":
             st.warning("لطفاً برای بهبود تجربه کاربری، اطلاعات خود را یک‌بار تکمیل کنید:")
-            name = st.text_input("نام کامل:")
-            bday = st.date_input("تاریخ تولد:")
-            interests = st.text_input("علایق:")
-            if st.button("تکمیل و ورود"):
-                c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
-                          (name, str(bday), interests, st.session_state.username))
-                conn.commit(); st.rerun()
+            with st.form("profile_form"):
+                name = st.text_input("نام کامل:")
+                bday = st.date_input("تاریخ تولد:")
+                interests = st.text_input("علایق:")
+                submit = st.form_submit_button("تکمیل و ورود")
+                if submit:
+                    c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
+                              (name, str(bday), interests, st.session_state.username))
+                    conn.commit(); st.rerun()
             st.stop()
     else:
         st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
         user_input = st.text_input("نام کاربری:")
-        if user_input:
-            c = conn.cursor()
-            c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
-            conn.commit()
-            if st.button("ورود"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
+        if st.button("تایید نام کاربری"):
+            if user_input:
+                c = conn.cursor()
+                c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
+                conn.commit()
+                st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
 
 # تنظیمات اصلی
@@ -287,7 +290,6 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
-                # دریافت اطلاعات کاربر برای تزریق به پرامپت (ایمن سازی در برابر Null)
                 c = conn.cursor()
                 c.execute("SELECT full_name, birth_date, interests, summary FROM users WHERE username = ?", (st.session_state.username,))
                 u_info = c.fetchone()
@@ -295,10 +297,8 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                     name, bday, interests, summary = u_info[0] or "کاربر", u_info[1] or "نامشخص", u_info[2] or "نامشخص", u_info[3] or ""
                 else:
                     name, bday, interests, summary = "کاربر", "نامشخص", "نامشخص", ""
-                
                 info_str = f"نام: {name}, تاریخ تولد: {bday}, علایق: {interests}"
                 st.session_state.memory_summary = summary
-                
                 if len(current_messages) % 5 == 0:
                     st.session_state.memory_summary = update_memory_summary(current_messages, st.session_state.memory_summary)
                     c.execute("UPDATE users SET summary = ? WHERE username = ?", (st.session_state.memory_summary, st.session_state.username))
