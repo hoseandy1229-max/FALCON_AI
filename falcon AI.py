@@ -124,13 +124,15 @@ if "username" not in st.session_state:
             st.warning("لطفاً برای بهبود تجربه کاربری، اطلاعات خود را یک‌بار تکمیل کنید:")
             with st.form("profile_form"):
                 name = st.text_input("نام کامل:")
-                bday = st.date_input("تاریخ تولد:")
-                interests = st.text_input("علایق:")
+                bday = st.text_input("تاریخ تولد (مثال: ۱۳۸۹/۰۵/۱۰):")
+                interests = st.text_area("علایق (هر کدام را با ویرگول جدا کنید):")
                 submit = st.form_submit_button("تکمیل و ورود")
                 if submit:
-                    c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
-                              (name, str(bday), interests, st.session_state.username))
-                    conn.commit(); st.rerun()
+                    if name and bday:
+                        c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
+                                  (name, bday, interests, st.session_state.username))
+                        conn.commit(); st.rerun()
+                    else: st.error("لطفاً نام و تاریخ تولد را وارد کنید.")
             st.stop()
     else:
         st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
