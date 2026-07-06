@@ -17,7 +17,7 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY)''')
     # اضافه کردن ستون‌های پروفایل
-    for col in ['summary', 'full_name', 'birth_date', 'interests']:
+    for col in ['summary', 'full_name', 'birth_date', 'interests', 'profile_version']:
         try:
             c.execute(f'ALTER TABLE users ADD COLUMN {col} TEXT')
         except sqlite3.OperationalError:
@@ -54,7 +54,7 @@ PERSONAS = {
     "دستیار (منظم)": "تو یک دستیار هوشمند، دقیق و بسیار منظم هستی.",
     "دانا (دانشمند)": "تو یک دانشمند هستی که با دقت و علمی پاسخ می‌دهی.",
     "سارا (دوست‌داشتنی)": "تو یک دوست صمیمی و مهربان هستی که با لحن گرم صحبت می‌کنی.",
-    "استاد (سخت‌گیر)": "تو یک استاد سخت‌گیر هستی که به طور مختصر و فنی پاسخ می‌دهی.",
+    "استاد (سخت-گیر)": "تو یک استاد سخت‌گیر هستی که به طور مختصر و فنی پاسخ می‌دهی.",
     "شوخ (طناز)": "تو همیشه با شوخی و طنز پاسخ می‌دهی.",
     "فیلسوف (متفکر)": "تو با دیدگاه فلسفی و عمیق به سوالات نگاه می‌کنی.",
     "نویسنده (خلاق)": "تو با ادبیاتی شاعرانه و خلاقانه پاسخ می‌دهی.",
@@ -115,23 +115,29 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
 # لاگین هوشمند
 if "username" not in st.session_state:
     if "username" in cookies: st.session_state.username = cookies["username"]
+    
+    if "username" in st.session_state:
+        c = conn.cursor()
+        c.execute("SELECT profile_version FROM users WHERE username = ?", (st.session_state.username,))
+        row = c.fetchone()
+        if not row or row[0] != "1":
+            st.warning("لطفاً برای بهبود تجربه کاربری، اطلاعات خود را یک‌بار تکمیل کنید:")
+            name = st.text_input("نام کامل:")
+            bday = st.date_input("تاریخ تولد:")
+            interests = st.text_input("علایق:")
+            if st.button("تکمیل و ورود"):
+                c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
+                          (name, str(bday), interests, st.session_state.username))
+                conn.commit(); st.rerun()
+            st.stop()
     else:
         st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
         user_input = st.text_input("نام کاربری:")
         if user_input:
             c = conn.cursor()
-            c.execute("SELECT full_name FROM users WHERE username = ?", (user_input,))
-            if c.fetchone():
-                if st.button("ورود"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
-            else:
-                st.warning("خوش آمدی! لطفا اطلاعاتت را تکمیل کن:")
-                name = st.text_input("نام کامل:")
-                bday = st.date_input("تاریخ تولد:")
-                interests = st.text_input("علایق (با کاما جدا کن):")
-                if st.button("ثبت نام"):
-                    c.execute("INSERT INTO users (username, full_name, birth_date, interests, summary) VALUES (?, ?, ?, ?, ?)", (user_input, name, str(bday), interests, ""))
-                    conn.commit()
-                    st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
+            c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
+            conn.commit()
+            if st.button("ورود"): st.session_state.username = user_input; cookies["username"] = user_input; cookies.save(); st.rerun()
         st.stop()
 
 # تنظیمات اصلی
@@ -281,12 +287,17 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
-                # دریافت اطلاعات کاربر برای تزریق به پرامپت
+                # دریافت اطلاعات کاربر برای تزریق به پرامپت (ایمن سازی در برابر Null)
                 c = conn.cursor()
                 c.execute("SELECT full_name, birth_date, interests, summary FROM users WHERE username = ?", (st.session_state.username,))
                 u_info = c.fetchone()
-                info_str = f"نام کاربر: {u_info[0]}, تاریخ تولد: {u_info[1]}, علایق: {u_info[2]}"
-                st.session_state.memory_summary = u_info[3] or ""
+                if u_info:
+                    name, bday, interests, summary = u_info[0] or "کاربر", u_info[1] or "نامشخص", u_info[2] or "نامشخص", u_info[3] or ""
+                else:
+                    name, bday, interests, summary = "کاربر", "نامشخص", "نامشخص", ""
+                
+                info_str = f"نام: {name}, تاریخ تولد: {bday}, علایق: {interests}"
+                st.session_state.memory_summary = summary
                 
                 if len(current_messages) % 5 == 0:
                     st.session_state.memory_summary = update_memory_summary(current_messages, st.session_state.memory_summary)
