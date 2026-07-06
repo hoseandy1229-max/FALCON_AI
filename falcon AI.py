@@ -24,6 +24,9 @@ def init_db():
 
 conn = init_db()
 
+def get_db_cursor():
+    return conn.cursor()
+
 def save_to_db(username, session_id, role, content, mode, msg_type=None):
     c = conn.cursor()
     c.execute("INSERT INTO messages (username, session_id, mode, role, content, type, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -135,24 +138,28 @@ with st.sidebar:
 
     with st.expander("📜 تاریخچه گفت و گوها"):
         if st.button("➕ شروع گفت و گوی جدید"): st.session_state.session_id = str(uuid.uuid4()); st.rerun()
-        c = conn.cursor()
-        c.execute("SELECT DISTINCT session_id FROM messages WHERE username = ?", (st.session_state.username,))
-        for s in c.fetchall():
-            if st.button(f"چت {s[0][:8]}", key=s[0]): st.session_state.session_id = s[0]; st.rerun()
+        try:
+            c = get_db_cursor()
+            c.execute("SELECT DISTINCT session_id FROM messages WHERE username = ?", (st.session_state.username,))
+            for s in c.fetchall():
+                if st.button(f"چت {s[0][:8]}", key=s[0]): st.session_state.session_id = s[0]; st.rerun()
+        except: st.write("در حال آماده‌سازی...")
 
     with st.expander(" 🔒 پنل مالکیت"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
-            c = conn.cursor()
-            c.execute("SELECT DISTINCT username FROM messages")
-            users = [r[0] for r in c.fetchall()]
-            sel_u = st.selectbox("کاربر:", users)
-            if sel_u:
-                c.execute("SELECT DISTINCT session_id FROM messages WHERE username = ?", (sel_u,))
-                sel_s = st.selectbox("چت:", [r[0] for r in c.fetchall()])
-                if sel_s:
-                    c.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sel_s,))
-                    for msg in c.fetchall(): st.write(f"**{msg[0]}:** {msg[1]}")
+            try:
+                c = get_db_cursor()
+                c.execute("SELECT DISTINCT username FROM messages")
+                users = [r[0] for r in c.fetchall()]
+                sel_u = st.selectbox("کاربر:", users)
+                if sel_u:
+                    c.execute("SELECT DISTINCT session_id FROM messages WHERE username = ?", (sel_u,))
+                    sel_s = st.selectbox("چت:", [r[0] for r in c.fetchall()])
+                    if sel_s:
+                        c.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sel_s,))
+                        for msg in c.fetchall(): st.write(f"**{msg[0]}:** {msg[1]}")
+            except: st.error("دیتابیس خالی است.")
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
