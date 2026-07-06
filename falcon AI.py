@@ -15,7 +15,7 @@ from tavily import TavilyClient
 def init_db():
     conn = sqlite3.connect("falcon_ai.db", check_same_thread=False)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, summary TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, filename TEXT, messages TEXT)''')
     conn.commit()
     return conn
@@ -68,6 +68,11 @@ vision_model_options = {
     "Qwen VL": "qwen/qwen-2-vl-72b-instruct", "Pixtral": "mistralai/pixtral-12b"
 }
 
+def update_memory_summary(current_messages, existing_summary):
+    if len(current_messages) < 6: return existing_summary
+    prompt = f"خلاصه ای بسیار کوتاه و مفید از این گفتگو برای درک نیازهای کاربر ارائه بده:\n{str(current_messages[-6:])}"
+    return groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}]).choices[0].message.content
+
 def get_client_and_model(model_name):
     if "/" in model_name: return or_client, model_name
     return groq_client, model_name
@@ -110,7 +115,7 @@ if "username" not in st.session_state:
         if st.button("تایید"): 
             st.session_state.username = user_input; cookies["username"] = user_input; cookies.save()
             c = conn.cursor()
-            c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
+            c.execute("INSERT OR IGNORE INTO users (username, summary) VALUES (?, ?)", (user_input, ""))
             conn.commit()
             st.rerun()
         st.stop()
@@ -126,6 +131,12 @@ if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝑨𝑳
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 if "user_pref" not in st.session_state: st.session_state.user_pref = ""
 if "curr_chat" not in st.session_state: st.session_state.curr_chat = None
+
+# بازیابی خلاصه از دیتابیس
+c = conn.cursor()
+c.execute("SELECT summary FROM users WHERE username = ?", (st.session_state.username,))
+result_sum = c.fetchone()
+st.session_state.memory_summary = result_sum[0] if result_sum else ""
 
 # سایدبار
 with st.sidebar:
@@ -256,9 +267,14 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
+                if len(current_messages) % 5 == 0:
+                    st.session_state.memory_summary = update_memory_summary(current_messages, st.session_state.memory_summary)
+                    c = conn.cursor()
+                    c.execute("UPDATE users SET summary = ? WHERE username = ?", (st.session_state.memory_summary, st.session_state.username))
+                    conn.commit()
                 memory = get_long_term_memory(st.session_state.username)
                 search_results = search_web(prompt)
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه: {str(memory)[:500]}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه اصلی: {st.session_state.memory_summary}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
                 clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
                 messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
                 client, model = get_client_and_model(selected_model)
