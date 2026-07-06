@@ -20,18 +20,17 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, session_id TEXT, mode TEXT, 
                   role TEXT, content TEXT, type TEXT, timestamp DATETIME)''')
     conn.commit()
-    return conn
+    conn.close()
 
-conn = init_db()
-
-def get_db_cursor():
-    return conn.cursor()
+init_db()
 
 def save_to_db(username, session_id, role, content, mode, msg_type=None):
+    conn = sqlite3.connect('falcon_ai.db', check_same_thread=False)
     c = conn.cursor()
     c.execute("INSERT INTO messages (username, session_id, mode, role, content, type, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
               (username, session_id, mode, role, content, msg_type, datetime.now()))
     conn.commit()
+    conn.close()
 
 # مدیریت کوکی
 cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", password="some_secret_password")
@@ -138,28 +137,28 @@ with st.sidebar:
 
     with st.expander("📜 تاریخچه گفت و گوها"):
         if st.button("➕ شروع گفت و گوی جدید"): st.session_state.session_id = str(uuid.uuid4()); st.rerun()
-        try:
-            c = get_db_cursor()
-            c.execute("SELECT DISTINCT session_id FROM messages WHERE username = ?", (st.session_state.username,))
-            for s in c.fetchall():
-                if st.button(f"چت {s[0][:8]}", key=s[0]): st.session_state.session_id = s[0]; st.rerun()
-        except: st.write("در حال آماده‌سازی...")
+        conn = sqlite3.connect('falcon_ai.db')
+        c = conn.cursor()
+        c.execute("SELECT DISTINCT session_id FROM messages WHERE username = ?", (st.session_state.username,))
+        for s in c.fetchall():
+            if st.button(f"چت {s[0][:8]}", key=s[0]): st.session_state.session_id = s[0]; st.rerun()
+        conn.close()
 
     with st.expander(" 🔒 پنل مالکیت"):
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
-            try:
-                c = get_db_cursor()
-                c.execute("SELECT DISTINCT username FROM messages")
-                users = [r[0] for r in c.fetchall()]
-                sel_u = st.selectbox("کاربر:", users)
-                if sel_u:
-                    c.execute("SELECT DISTINCT session_id FROM messages WHERE username = ?", (sel_u,))
-                    sel_s = st.selectbox("چت:", [r[0] for r in c.fetchall()])
-                    if sel_s:
-                        c.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sel_s,))
-                        for msg in c.fetchall(): st.write(f"**{msg[0]}:** {msg[1]}")
-            except: st.error("دیتابیس خالی است.")
+            conn = sqlite3.connect('falcon_ai.db')
+            c = conn.cursor()
+            c.execute("SELECT DISTINCT username FROM messages")
+            users = [r[0] for r in c.fetchall()]
+            sel_u = st.selectbox("همه کاربران:", users)
+            if sel_u:
+                c.execute("SELECT DISTINCT session_id FROM messages WHERE username = ?", (sel_u,))
+                sel_s = st.selectbox("چت‌های این کاربر:", [r[0] for r in c.fetchall()])
+                if sel_s:
+                    c.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sel_s,))
+                    for msg in c.fetchall(): st.write(f"**{msg[0]}:** {msg[1]}")
+            conn.close()
         elif admin_pwd: st.error("رمز غلط")
 
 # رمز SR BOT
@@ -172,9 +171,11 @@ if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state
     st.stop()
 
 # لود کردن پیام‌ها
+conn = sqlite3.connect('falcon_ai.db')
 c = conn.cursor()
 c.execute("SELECT role, content, type FROM messages WHERE session_id = ? ORDER BY id ASC", (st.session_state.session_id,))
 current_messages = [{"role": r[0], "content": r[1], "type": r[2]} for r in c.fetchall()]
+conn.close()
 
 st.title(f"{st.session_state.bot_mode} - {PERSONA_EMOJIS.get(st.session_state.persona)} {st.session_state.persona}")
 with st.container():
