@@ -12,7 +12,7 @@ from datetime import datetime
 from streamlit_cookies_manager import EncryptedCookieManager
 from tavily import TavilyClient
 
-# --- تنظیمات دیتابیس SQLite ---
+# --- تنظیمات دیتابیس ---
 def init_db():
     conn = sqlite3.connect('falcon_ai.db', check_same_thread=False)
     c = conn.cursor()
@@ -35,10 +35,9 @@ cookies = EncryptedCookieManager(prefix="𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰", pas
 if not cookies.ready(): st.stop()
 
 if not os.path.exists("history"): os.makedirs("history")
+
 # تنظیمات صفحه
 st.set_page_config(page_title="Falcon AI", layout="wide", page_icon="logo.png")
-
-# کلاینت Tavily
 tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
 
 # استایل‌ها
@@ -167,8 +166,7 @@ if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻" and not st.session_state
 
 # لود کردن پیام‌ها
 c = conn.cursor()
-c.execute("SELECT role, content, type FROM messages WHERE session_id = ? ORDER BY id ASC", 
-          (st.session_state.session_id,))
+c.execute("SELECT role, content, type FROM messages WHERE session_id = ? ORDER BY id ASC", (st.session_state.session_id,))
 current_messages = [{"role": r[0], "content": r[1], "type": r[2]} for r in c.fetchall()]
 
 st.title(f"{st.session_state.bot_mode} - {PERSONA_EMOJIS.get(st.session_state.persona)} {st.session_state.persona}")
@@ -176,9 +174,7 @@ with st.container():
     st.markdown("<h3 style='text-align: center;'>حالت کاری:</h3>", unsafe_allow_html=True)
     mode = st.radio("", ["👁️ تحلیل عکس", "🎨 تولید تصویر", "💬 چت عادی", "📝 برنامه‌نویسی"], index=2, horizontal=True, label_visibility="collapsed")
 
-model_key = None
-uploaded_file = None
-
+# لاجیک کامل برنامه‌نویسی
 if mode == "📝 برنامه‌نویسی":
     st.subheader("💻 Falcon Code Studio")
     code_input = st.text_area("کد یا درخواست خود را وارد کنید:", height=200)
@@ -198,12 +194,14 @@ if mode == "📝 برنامه‌نویسی":
             st.code(resp, language=lang_dest if btn_trans else lang_src)
             save_to_db(st.session_state.username, st.session_state.session_id, "assistant", f"**{task} خروجی:**\n\n{resp}", st.session_state.bot_mode)
             st.rerun()
+
+# لاجیک تحلیل عکس
 elif mode == "👁️ تحلیل عکس":
     model_name = st.selectbox("مدل تحلیل:", list(vision_model_options.keys()))
     model_key = vision_model_options[model_name]
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
 
-# نمایش پیام‌ها
+# نمایش پیام‌ها و سیستم لایک/دیس‌لایک
 for i, msg in enumerate(current_messages):
     av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
     with st.chat_message(msg["role"], avatar=av):
@@ -216,11 +214,12 @@ for i, msg in enumerate(current_messages):
             with col2: 
                 if st.button("👎", key=f"dislike_{i}"): st.session_state.user_pref += f" [دیس: {msg['content'][:15]}]"
 
+# پردازش ورودی کاربر
 if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     save_to_db(st.session_state.username, st.session_state.session_id, "user", prompt, st.session_state.bot_mode)
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant", avatar=PERSONA_EMOJIS.get(st.session_state.persona)):
-        if mode == "👁️ تحلیل عکس" and uploaded_file is not None:
+        if mode == "👁️ تحلیل عکس" and 'uploaded_file' in locals() and uploaded_file is not None:
             with st.status("در حال تجزیه و تحلیل...", expanded=True):
                 res = analyze_image(uploaded_file, prompt, model_key)
                 st.markdown(res)
