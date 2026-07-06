@@ -16,13 +16,16 @@ def init_db():
     conn = sqlite3.connect("falcon_ai.db", check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY)''')
-    # اضافه کردن ستون‌های پروفایل
     for col in ['summary', 'full_name', 'birth_date', 'interests', 'profile_version']:
         try:
             c.execute(f'ALTER TABLE users ADD COLUMN {col} TEXT')
         except sqlite3.OperationalError:
             pass 
-    c.execute('''CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, filename TEXT, messages TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, session_id TEXT, filename TEXT, messages TEXT)''')
+    try:
+        c.execute('ALTER TABLE chat_history ADD COLUMN session_id TEXT')
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     return conn
 
@@ -139,7 +142,6 @@ if "username" in st.session_state:
 else:
     st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
     user_input = st.text_input("نام کاربری:")
-    # دکمه با کلید اختصاصی برای جلوگیری از تداخل کش
     if st.button("تایید نام کاربری", key="unique_login_button"):
         if user_input:
             c = conn.cursor()
@@ -162,8 +164,9 @@ if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝑨𝑳
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 if "user_pref" not in st.session_state: st.session_state.user_pref = ""
 if "curr_chat" not in st.session_state: st.session_state.curr_chat = None
+if "current_session_id" not in st.session_state: st.session_state.current_session_id = "default"
 
-# بازیابی خلاصه از دیتابیس
+# بازیابی خلاصه
 c = conn.cursor()
 c.execute("SELECT summary FROM users WHERE username = ?", (st.session_state.username,))
 result_sum = c.fetchone()
@@ -176,13 +179,7 @@ with st.sidebar:
     new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0 if st.session_state.bot_mode=="𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰" else 1)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
-    
-    selected_model = st.selectbox("مدل:", [
-        "llama-3.3-70b-versatile", 
-        "qwen/qwen-2.5-72b-instruct", 
-        "gryphe/mythomax-l2-13b",
-        "mistralai/mistral-small-24b-instruct-2501"
-    ])
+    selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"])
 
     with st.expander("📜 تاریخچه گفت و گوها"):
         c = conn.cursor()
@@ -191,6 +188,7 @@ with st.sidebar:
         for f in history_files:
             if st.button(f, key=f"hist_{f}"):
                 st.session_state.curr_chat = f
+                st.session_state.current_session_id = f
                 c.execute("SELECT messages FROM chat_history WHERE username = ? AND filename = ?", (st.session_state.username, f))
                 data = json.loads(c.fetchone()[0])
                 if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = data
@@ -198,6 +196,7 @@ with st.sidebar:
                 st.rerun()
         if st.button("➕ شروع گفت و گوی جدید"):
             st.session_state.curr_chat = None
+            st.session_state.current_session_id = f"sess_{random.randint(1000,9999)}"
             if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
             else: st.session_state.messages_falcon = []
             st.rerun()
@@ -267,7 +266,6 @@ elif mode == "👁️ تحلیل عکس":
     model_key = vision_model_options[model_name]
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
 
-# نمایش پیام‌ها
 for i, msg in enumerate(current_messages):
     if msg.get("mode", "💬 چت عادی") != mode: continue
     av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
@@ -301,11 +299,7 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                 c = conn.cursor()
                 c.execute("SELECT full_name, birth_date, interests, summary FROM users WHERE username = ?", (st.session_state.username,))
                 u_info = c.fetchone()
-                if u_info:
-                    name, bday, interests, summary = u_info[0] or "کاربر", u_info[1] or "نامشخص", u_info[2] or "نامشخص", u_info[3] or ""
-                else:
-                    name, bday, interests, summary = "کاربر", "نامشخص", "نامشخص", ""
-                info_str = f"نام: {name}, تاریخ تولد: {bday}, علایق: {interests}"
+                name, bday, interests, summary = (u_info[0] or "کاربر", u_info[1] or "نامشخص", u_info[2] or "نامشخص", u_info[3] or "") if u_info else ("کاربر", "نامشخص", "نامشخص", "")
                 st.session_state.memory_summary = summary
                 if len(current_messages) % 5 == 0:
                     st.session_state.memory_summary = update_memory_summary(current_messages, st.session_state.memory_summary)
@@ -313,7 +307,7 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
                     conn.commit()
                 memory = get_long_term_memory(st.session_state.username)
                 search_results = search_web(prompt)
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. اطلاعات کاربر: {info_str}. حافظه اصلی: {st.session_state.memory_summary}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. اطلاعات کاربر: نام: {name}, تاریخ تولد: {bday}, علایق: {interests}. حافظه اصلی: {st.session_state.memory_summary}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
                 clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
                 messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
                 client, model = get_client_and_model(selected_model)
@@ -324,6 +318,6 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     if not st.session_state.curr_chat:
         st.session_state.curr_chat = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO chat_history (username, filename, messages) VALUES (?, ?, ?)", (st.session_state.username, st.session_state.curr_chat, json.dumps(current_messages)))
+    c.execute("INSERT OR REPLACE INTO chat_history (username, session_id, filename, messages) VALUES (?, ?, ?, ?)", (st.session_state.username, st.session_state.current_session_id, st.session_state.curr_chat, json.dumps(current_messages)))
     conn.commit()
     st.rerun()
