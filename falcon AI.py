@@ -113,28 +113,24 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
     return "خطا در تحلیل تصویر."
 
 # لاگین هوشمند
-if "username" not in st.session_state:
-    if "username" in cookies: 
-        st.session_state.username = cookies["username"]
+if "username" not in st.session_state and "username" in cookies:
+    st.session_state.username = cookies["username"]
 
 if "username" in st.session_state:
     c = conn.cursor()
     c.execute("SELECT profile_version FROM users WHERE username = ?", (st.session_state.username,))
     row = c.fetchone()
-    
     if not row or row[0] != "1":
         st.warning("لطفاً برای بهبود تجربه کاربری، اطلاعات خود را یک‌بار تکمیل کنید:")
         with st.form("profile_form"):
             name = st.text_input("نام کامل:")
             bday = st.text_input("تاریخ تولد (مثال: ۱۳۸۹/۰۵/۱۰):")
             interests = st.text_area("علایق (هر کدام را با ویرگول جدا کنید):")
-            submit = st.form_submit_button("تکمیل و ورود")
-            if submit:
+            if st.form_submit_button("تکمیل و ورود"):
                 if name and bday:
                     c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
                               (name, bday, interests, st.session_state.username))
-                    conn.commit()
-                    st.rerun()
+                    conn.commit(); st.rerun()
                 else: st.error("لطفاً نام و تاریخ تولد را وارد کنید.")
         st.stop()
 else:
