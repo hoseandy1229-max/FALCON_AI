@@ -161,11 +161,13 @@ with st.sidebar:
         admin_pwd = st.text_input("رمز:", type="password")
         if admin_pwd == "admin123":
             c = conn.cursor()
-            c.execute("SELECT username FROM users")
-            sel_u = st.selectbox("کاربر:", [row[0] for row in c.fetchall()])
+            c.execute("SELECT username FROM users UNION SELECT DISTINCT username FROM chat_history")
+            all_users = [row[0] for row in c.fetchall()]
+            sel_u = st.selectbox("کاربر:", all_users)
             if sel_u:
                 c.execute("SELECT DISTINCT filename FROM chat_history WHERE username = ?", (sel_u,))
-                sel_f = st.selectbox("چت:", [row[0] for row in c.fetchall()])
+                files = [row[0] for row in c.fetchall()]
+                sel_f = st.selectbox("چت:", files)
                 if sel_f and st.button("مشاهده"):
                     c.execute("SELECT messages FROM chat_history WHERE username = ? AND filename = ?", (sel_u, sel_f))
                     for msg in json.loads(c.fetchone()[0]): st.write(f"**{msg['role']}:** {msg.get('content', '')}")
