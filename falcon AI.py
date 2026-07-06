@@ -15,17 +15,14 @@ from tavily import TavilyClient
 def init_db():
     conn = sqlite3.connect("falcon_ai.db", check_same_thread=False)
     c = conn.cursor()
+    # ایجاد جدول کاربران
     c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY)''')
-    for col in ['summary', 'full_name', 'birth_date', 'interests', 'profile_version']:
-        try:
-            c.execute(f'ALTER TABLE users ADD COLUMN {col} TEXT')
-        except sqlite3.OperationalError:
-            pass 
-    c.execute('''CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, session_id TEXT, filename TEXT, messages TEXT)''')
+    # اضافه کردن ستون summary اگر وجود ندارد
     try:
-        c.execute('ALTER TABLE chat_history ADD COLUMN session_id TEXT')
+        c.execute('''ALTER TABLE users ADD COLUMN summary TEXT''')
     except sqlite3.OperationalError:
-        pass
+        pass 
+    c.execute('''CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, filename TEXT, messages TEXT)''')
     conn.commit()
     return conn
 
@@ -57,7 +54,7 @@ PERSONAS = {
     "دستیار (منظم)": "تو یک دستیار هوشمند، دقیق و بسیار منظم هستی.",
     "دانا (دانشمند)": "تو یک دانشمند هستی که با دقت و علمی پاسخ می‌دهی.",
     "سارا (دوست‌داشتنی)": "تو یک دوست صمیمی و مهربان هستی که با لحن گرم صحبت می‌کنی.",
-    "استاد (سخت-گیر)": "تو یک استاد سخت‌گیر هستی که به طور مختصر و فنی پاسخ می‌دهی.",
+    "استاد (سخت‌گیر)": "تو یک استاد سخت‌گیر هستی که به طور مختصر و فنی پاسخ می‌دهی.",
     "شوخ (طناز)": "تو همیشه با شوخی و طنز پاسخ می‌دهی.",
     "فیلسوف (متفکر)": "تو با دیدگاه فلسفی و عمیق به سوالات نگاه می‌کنی.",
     "نویسنده (خلاق)": "تو با ادبیاتی شاعرانه و خلاقانه پاسخ می‌دهی.",
@@ -67,7 +64,7 @@ PERSONAS = {
 
 PERSONA_EMOJIS = {
     "دستیار (منظم)": "🤖", "دانا (دانشمند)": "🧬", "سارا (دوست‌داشتنی)": "🌸",
-    "استاد (سخت-گیر)": "🎓", "شوخ (طناز)": "🤡", "فیلسوف (متفکر)": "🧠",
+    "استاد (سخت‌گیر)": "🎓", "شوخ (طناز)": "🤡", "فیلسوف (متفکر)": "🧠",
     "نویسنده (خلاق)": "✍️", "کدنویس (منطقی)": "💻", "مربی (انگیزشی)": "🔥"
 }
 
@@ -115,43 +112,19 @@ def analyze_image(uploaded_file, user_prompt, model_to_use):
         except: continue
     return "خطا در تحلیل تصویر."
 
-# لاگین هوشمند
-if "username" not in st.session_state and "username" in cookies:
-    st.session_state.username = cookies["username"]
-
-if "username" in st.session_state:
-    c = conn.cursor()
-    c.execute("SELECT profile_version FROM users WHERE username = ?", (st.session_state.username,))
-    row = c.fetchone()
-    
-    if not row or row[0] != "1":
-        st.warning("لطفاً برای بهبود تجربه کاربری، اطلاعات خود را یک‌بار تکمیل کنید:")
-        with st.form("profile_form"):
-            name = st.text_input("نام کامل:")
-            bday = st.text_input("تاریخ تولد (مثال: ۱۳۸۹/۰۵/۱۰):")
-            interests = st.text_area("علایق (هر کدام را با ویرگول جدا کنید):")
-            submit = st.form_submit_button("تکمیل و ورود")
-            if submit:
-                if name and bday:
-                    c.execute("UPDATE users SET full_name=?, birth_date=?, interests=?, profile_version='1' WHERE username=?", 
-                              (name, bday, interests, st.session_state.username))
-                    conn.commit()
-                    st.rerun()
-                else: st.error("لطفاً نام و تاریخ تولد را وارد کنید.")
-        st.stop()
-else:
-    st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
-    user_input = st.text_input("نام کاربری:")
-    if st.button("تایید نام کاربری", key="unique_login_button"):
-        if user_input:
+# لاگین
+if "username" not in st.session_state:
+    if "username" in cookies: st.session_state.username = cookies["username"]
+    else:
+        st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
+        user_input = st.text_input("نام کاربری:")
+        if st.button("تایید"): 
+            st.session_state.username = user_input; cookies["username"] = user_input; cookies.save()
             c = conn.cursor()
-            c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
+            c.execute("INSERT OR IGNORE INTO users (username, summary) VALUES (?, ?)", (user_input, ""))
             conn.commit()
-            st.session_state.username = user_input
-            cookies["username"] = user_input
-            cookies.save()
             st.rerun()
-    st.stop()
+        st.stop()
 
 # تنظیمات اصلی
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -164,9 +137,8 @@ if "bot_mode" not in st.session_state: st.session_state.bot_mode = "𝑭𝑨𝑳
 if "persona" not in st.session_state: st.session_state.persona = "دستیار (منظم)"
 if "user_pref" not in st.session_state: st.session_state.user_pref = ""
 if "curr_chat" not in st.session_state: st.session_state.curr_chat = None
-if "current_session_id" not in st.session_state: st.session_state.current_session_id = "default"
 
-# بازیابی خلاصه
+# بازیابی خلاصه از دیتابیس
 c = conn.cursor()
 c.execute("SELECT summary FROM users WHERE username = ?", (st.session_state.username,))
 result_sum = c.fetchone()
@@ -179,7 +151,13 @@ with st.sidebar:
     new_mode = st.radio("بخش:", ["𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰", "𝑺𝑹 𝑩𝑶𝑻"], index=0 if st.session_state.bot_mode=="𝑭𝑨𝑳𝑪𝑶𝑵 𝑨𝑰" else 1)
     if new_mode != st.session_state.bot_mode: st.session_state.bot_mode = new_mode; st.session_state.auth_sr = False; st.rerun()
     st.session_state.persona = st.selectbox("شخصیت:", list(PERSONAS.keys()))
-    selected_model = st.selectbox("مدل:", ["llama-3.3-70b-versatile", "qwen/qwen-2.5-72b-instruct", "gryphe/mythomax-l2-13b", "mistralai/mistral-small-24b-instruct-2501"])
+    
+    selected_model = st.selectbox("مدل:", [
+        "llama-3.3-70b-versatile", 
+        "qwen/qwen-2.5-72b-instruct", 
+        "gryphe/mythomax-l2-13b",
+        "mistralai/mistral-small-24b-instruct-2501"
+    ])
 
     with st.expander("📜 تاریخچه گفت و گوها"):
         c = conn.cursor()
@@ -188,7 +166,6 @@ with st.sidebar:
         for f in history_files:
             if st.button(f, key=f"hist_{f}"):
                 st.session_state.curr_chat = f
-                st.session_state.current_session_id = f
                 c.execute("SELECT messages FROM chat_history WHERE username = ? AND filename = ?", (st.session_state.username, f))
                 data = json.loads(c.fetchone()[0])
                 if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = data
@@ -196,7 +173,6 @@ with st.sidebar:
                 st.rerun()
         if st.button("➕ شروع گفت و گوی جدید"):
             st.session_state.curr_chat = None
-            st.session_state.current_session_id = f"sess_{random.randint(1000,9999)}"
             if st.session_state.bot_mode == "𝑺𝑹 𝑩𝑶𝑻": st.session_state.messages_sr = []
             else: st.session_state.messages_falcon = []
             st.rerun()
@@ -266,6 +242,7 @@ elif mode == "👁️ تحلیل عکس":
     model_key = vision_model_options[model_name]
     uploaded_file = st.file_uploader("عکس را آپلود کن:", type=["jpg", "jpeg", "png"])
 
+# نمایش پیام‌ها
 for i, msg in enumerate(current_messages):
     if msg.get("mode", "💬 چت عادی") != mode: continue
     av = PERSONA_EMOJIS.get(st.session_state.persona) if msg["role"] == "assistant" else None
@@ -296,18 +273,14 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
             current_messages.append({"role": "assistant", "content": url, "type": "image_gen", "mode": mode})
         elif mode == "💬 چت عادی":
             with st.status("در حال پردازش...", expanded=True) as status:
-                c = conn.cursor()
-                c.execute("SELECT full_name, birth_date, interests, summary FROM users WHERE username = ?", (st.session_state.username,))
-                u_info = c.fetchone()
-                name, bday, interests, summary = (u_info[0] or "کاربر", u_info[1] or "نامشخص", u_info[2] or "نامشخص", u_info[3] or "") if u_info else ("کاربر", "نامشخص", "نامشخص", "")
-                st.session_state.memory_summary = summary
                 if len(current_messages) % 5 == 0:
                     st.session_state.memory_summary = update_memory_summary(current_messages, st.session_state.memory_summary)
+                    c = conn.cursor()
                     c.execute("UPDATE users SET summary = ? WHERE username = ?", (st.session_state.memory_summary, st.session_state.username))
                     conn.commit()
                 memory = get_long_term_memory(st.session_state.username)
                 search_results = search_web(prompt)
-                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. اطلاعات کاربر: نام: {name}, تاریخ تولد: {bday}, علایق: {interests}. حافظه اصلی: {st.session_state.memory_summary}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
+                sys_prompt = f"شخصیت شما: {PERSONAS[st.session_state.persona]}. حافظه اصلی: {st.session_state.memory_summary}. جستجو: {str(search_results)[:500]}. پاسخ فارسی بده."
                 clean_history = [{"role": m["role"], "content": m["content"]} for m in current_messages[-3:] if "role" in m and "content" in m]
                 messages_to_send = [{"role": "system", "content": sys_prompt}] + clean_history
                 client, model = get_client_and_model(selected_model)
@@ -318,6 +291,6 @@ if prompt := st.chat_input("𝑨𝑺𝑲 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰"):
     if not st.session_state.curr_chat:
         st.session_state.curr_chat = f"{st.session_state.bot_mode}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO chat_history (username, session_id, filename, messages) VALUES (?, ?, ?, ?)", (st.session_state.username, st.session_state.current_session_id, st.session_state.curr_chat, json.dumps(current_messages)))
+    c.execute("INSERT OR REPLACE INTO chat_history (username, filename, messages) VALUES (?, ?, ?)", (st.session_state.username, st.session_state.curr_chat, json.dumps(current_messages)))
     conn.commit()
     st.rerun()
