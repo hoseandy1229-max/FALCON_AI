@@ -138,10 +138,10 @@ if "username" in st.session_state:
         st.stop()
 else:
     st.title("ورود به 𝑭𝒂𝒍𝒄𝒐𝒏 𝑨𝑰")
-    with st.form("login_form"):
-        user_input = st.text_input("نام کاربری:")
-        submit = st.form_submit_button("تایید نام کاربری")
-        if submit and user_input:
+    user_input = st.text_input("نام کاربری:")
+    # دکمه با کلید اختصاصی برای جلوگیری از تداخل کش
+    if st.button("تایید نام کاربری", key="unique_login_button"):
+        if user_input:
             c = conn.cursor()
             c.execute("INSERT OR IGNORE INTO users (username) VALUES (?)", (user_input,))
             conn.commit()
